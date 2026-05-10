@@ -1,6 +1,6 @@
 # LinkedIn Agent Architecture
 
-Last updated: 2026-05-03  
+Last updated: 2026-05-10  
 Scope: MVP architecture (Slack first, DB-backed instruction profiles, cloud-hosted stack)
 
 ---
@@ -47,15 +47,31 @@ flowchart LR
   A --> DB
 ```
 
+
+
 ### Core components
 
 - **Web App**: onboarding, Slack connect, instruction profile CRUD, policy settings, history.
 - **Slack Adapter**: verifies Slack requests and maps interaction payloads to canonical events.
-- **Orchestration API**: auth, tenant routing, idempotency, request normalization.
+- **Orchestration API**: auth (Slack-signed ingress vs Clerk-verified web requests), tenant routing, idempotency, request normalization.
 - **Workflow Engine**: state machine for intake -> draft -> refine -> approve/reject -> ready-to-publish.
 - **Policy Layer**: style checks, banned phrases, claim guardrails.
 - **Instruction Profile Service**: loads versioned profile snapshots from DB.
 - **Audit/Event Store**: immutable record for compliance and debugging.
+
+### Authentication (web): Clerk
+
+The web app and browser-originated API calls use **[Clerk](https://clerk.com)** for identity and sessions. Slack connector traffic continues to use Slack signing secrets and Slack OAuth; that is separate from Clerk.
+
+| Concern | Approach |
+| -------- | -------- |
+| **Next.js app** | `@clerk/nextjs` — `ClerkProvider`, sign-in/up UI, and middleware protecting routes such as onboarding, settings, and activity/history. |
+| **Orchestration API (web)** | Validate **Clerk session JWTs** on `/v1/me/*` (and similar user-scoped routes): verify signature against Clerk JWKS, enforce issuer/audience, short lifetime. Accept `Authorization: Bearer <token>` from the web client or use Clerk’s recommended server-side session verification pattern for your deployment shape (e.g. Next.js calling API routes or Express with shared verification helper). |
+| **Identity mapping** | Map Clerk `sub` (user id) to an internal `User` row — persist `clerkUserId` (or equivalent) on `users` for stable joins with tenants and instruction profiles. |
+| **Directory sync** | Prefer **Clerk webhooks** (`user.created`, `user.updated`, `user.deleted`) to upsert internal users and handle email/metadata changes; alternatively lazy-create internal `User` on first successful JWT-verified request if webhook infra is deferred. |
+| **Connector OAuth** | **Slack OAuth** remains the path for installing the Slack app and storing workspace tokens in `connectors`; Clerk does not replace Slack’s OAuth for the bot/workspace link. |
+
+Security notes: never trust client-only claims without JWT verification; keep Clerk **publishable** key in the web app and **secret** keys / webhook signing secrets only on the server; rotate keys via Clerk dashboard if compromised.
 
 ---
 
@@ -70,7 +86,10 @@ flowchart TD
   DE --> O[Operations\n(observability + incident playbooks)]
 ```
 
+
+
 > Notes:
+>
 > - This project can still execute iteratively, but this waterfall view shows phase ownership and handoff order.
 > - Phase gates should use pilot metrics from `PRD.md` section 9.
 
@@ -103,6 +122,8 @@ sequenceDiagram
   S-->>U: Show draft with Approve/Refine/Reject
 ```
 
+
+
 ---
 
 ## 5) State machine flow
@@ -127,6 +148,8 @@ stateDiagram-v2
   Failed --> Rejected: retry_exhausted
 ```
 
+
+
 ### Guardrails
 
 - `Approved` requires policy checks pass.
@@ -138,8 +161,8 @@ stateDiagram-v2
 ## 6) Data flow (including failure paths)
 
 ```text
-INPUT (Slack/Web)
-  -> Signature/Auth Validation
+INPUT (Slack signed requests / Web + Clerk JWT)
+  -> Signature or JWT Validation (Slack vs Clerk)
   -> Tenant + Conversation Resolution
   -> Instruction Profile Snapshot Load (DB)
   -> Prompt Assembly + Policy Pre-Checks
@@ -149,7 +172,7 @@ INPUT (Slack/Web)
   -> Return Actions to Slack
 
 Failure branches:
-- Invalid signature -> 401 + security log (no workflow transition)
+- Invalid Slack signature or invalid/expired Clerk JWT -> 401 + security log (no workflow transition)
 - Duplicate event -> idempotent skip + info log
 - Missing instruction profile -> fallback to default profile version
 - LLM timeout -> retry once, then Failed state + user-visible message
@@ -173,6 +196,8 @@ flowchart LR
   RB -- Yes --> RF[Rollback / feature flag off]
 ```
 
+
+
 ### Rollback strategy
 
 - Disable new workflow features by feature flag.
@@ -186,7 +211,7 @@ flowchart LR
 ```text
 Core tables:
 - tenants
-- users
+- users (map to Clerk via stored Clerk user id on the user record)
 - connectors (slack metadata/tokens)
 - conversations
 - instruction_profiles
@@ -223,7 +248,7 @@ They must not contain business workflow logic.
 
 ## 10) Non-functional architecture requirements
 
-- **Security**: signed webhooks, encrypted tokens, strict tenant scoping.
+- **Security**: signed Slack webhooks, **Clerk JWT validation** for web-originated API calls, encrypted tokens (Slack, DB), strict tenant scoping.
 - **Reliability**: idempotent event handling, retries with bounded backoff, dead-letter queue for failed jobs.
 - **Observability**: correlation id (`conversation_id`) across API, jobs, LLM calls, and audit events.
 - **Performance**: cache instruction profile snapshots; keep prompt size bounded.
@@ -235,7 +260,7 @@ They must not contain business workflow logic.
 This stack is intentionally pragmatic: fast to ship, easy to operate, and aligned with Slack-first workflow + future adapter expansion.
 
 - **Frontend (web app)**: Next.js (TypeScript), Tailwind CSS, shadcn/ui
-- **API / orchestration**: NestJS (TypeScript), Zod for schema validation, OpenAPI for contracts
+- **API / orchestration**: Express JS (TypeScript), Zod for schema validation, OpenAPI for contracts
 - **Workflow engine**: Temporal (preferred) or BullMQ-based deterministic state machine
 - **Slack integration**: Slack Bolt SDK + signed request verification middleware
 - **LLM layer**: provider-agnostic client (OpenAI/Anthropic adapter pattern) with prompt/version registry
@@ -243,7 +268,7 @@ This stack is intentionally pragmatic: fast to ship, easy to operate, and aligne
 - **Queue / jobs**: Redis + BullMQ (if Temporal is not used for all async work)
 - **Cache**: Redis for instruction snapshot/cache and idempotency keys
 - **Storage / secrets**: cloud KMS + secret manager, object storage for optional artifacts
-- **Auth**: Clerk/Auth.js or Supabase Auth (web), Slack OAuth for connector authorization
+- **Auth**: **Clerk** for web sign-in/sessions and JWT verification on user-scoped API routes; **Slack OAuth** only for Slack workspace/bot connector installation (tokens in `connectors`)
 - **Infra / hosting**: Vercel (web) + Fly.io/Render/AWS ECS (API/worker), Terraform for infra-as-code
 - **Observability**: OpenTelemetry + Sentry + structured logs (Datadog/Loki) + uptime checks
 - **CI/CD**: GitHub Actions (lint/test/build/deploy), staged rollouts with feature flags
@@ -252,7 +277,8 @@ This stack is intentionally pragmatic: fast to ship, easy to operate, and aligne
 ### Minimal default choice (if deciding quickly)
 
 - Next.js + TypeScript
-- NestJS + TypeScript
+- Clerk (`@clerk/nextjs` + API JWT verification)
+- Express js + TypeScript
 - PostgreSQL + Prisma
 - Redis + BullMQ
 - Slack Bolt
