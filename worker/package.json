@@ -7,8 +7,9 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsup src/index.ts --format esm --clean",
     "start": "node dist/index.js",
-    "lint": "echo \"No lint configured for worker\"",
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/smoke.test.ts"
   },
   "dependencies": {
     "@linkedin-agent/shared": "workspace:*",
@@ -17,6 +18,7 @@
     "ioredis": "^5.4.1"
   },
   "devDependencies": {
+    "eslint": "^9.15.0",
     "@types/node": "^22.7.4",
     "tsup": "^8.2.4",
     "tsx": "^4.19.1",

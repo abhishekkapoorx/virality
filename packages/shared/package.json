@@ -8,11 +8,15 @@
   "scripts": {
     "build": "tsup src/index.ts --dts --format esm,cjs --clean",
     "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
-    "lint": "echo \"No lint configured for shared\"",
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/smoke.test.ts"
   },
   "devDependencies": {
+    "@types/node": "^22.7.4",
+    "eslint": "^9.15.0",
     "tsup": "^8.2.4",
+    "tsx": "^4.19.1",
     "typescript": "^5.6.2"
   }
 }
