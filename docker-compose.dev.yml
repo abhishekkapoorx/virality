@@ -1,0 +1,159 @@
+# Local development with live sync (Compose Watch).
+# Requires Docker Compose v2.22+ (`docker compose version`).
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up --build --watch
+#
+# From repo root package.json: `pnpm docker:dev`
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: linkedin-agent-postgres-dev
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-linkedin_agent}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-linkedin_agent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8-alpine
+    container_name: linkedin-agent-redis-dev
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data_dev:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+      target: development
+    container_name: linkedin-agent-api-dev
+    env_file:
+      - ./api/.env.example
+    environment:
+      NODE_ENV: development
+      PORT: ${API_PORT:-4000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-linkedin_agent}
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "${API_PORT:-4000}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./api
+          target: /app/api
+          ignore:
+            - node_modules/
+        - action: sync
+          path: ./packages/shared
+          target: /app/packages/shared
+          ignore:
+            - node_modules/
+            - dist/
+        - action: rebuild
+          path: ./api/package.json
+        - action: rebuild
+          path: ./packages/shared/package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+      target: development
+    container_name: linkedin-agent-worker-dev
+    env_file:
+      - ./worker/.env.example
+    environment:
+      NODE_ENV: development
+      PORT: ${WORKER_PORT:-4010}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-linkedin_agent}
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "${WORKER_PORT:-4010}:4010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./worker
+          target: /app/worker
+          ignore:
+            - node_modules/
+        - action: sync
+          path: ./packages/shared
+          target: /app/packages/shared
+          ignore:
+            - node_modules/
+            - dist/
+        - action: rebuild
+          path: ./worker/package.json
+        - action: rebuild
+          path: ./packages/shared/package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      target: development
+    container_name: linkedin-agent-web-dev
+    environment:
+      NODE_ENV: development
+      PORT: ${WEB_PORT:-3000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - api
+    develop:
+      watch:
+        - action: sync
+          path: ./web
+          target: /app/web
+          ignore:
+            - node_modules/
+            - .next/
+        - action: sync
+          path: ./packages/shared
+          target: /app/packages/shared
+          ignore:
+            - node_modules/
+            - dist/
+        - action: rebuild
+          path: ./web/package.json
+        - action: rebuild
+          path: ./packages/shared/package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:

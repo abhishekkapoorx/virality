@@ -32,7 +32,7 @@ Raw body required for signature verification on POST handlers.
 |--------|------|------|---------|
 | POST | `/v1/integrations/slack/events` | Slack signing secret | Events API (URL verification, messages, etc.) |
 | POST | `/v1/integrations/slack/interactions` | Slack signing secret | Block actions: Approve / Refine / Reject, shortcuts |
-| POST | `/v1/integrations/slack/commands` | Slack signing secret | Slash commands (optional MVP) |
+| POST | `/v1/integrations/slack/commands` | Slack signing secret | Slash commands (includes `/set-repeat <cron>`) |
 
 ### 1.3 Slack OAuth (connector)
 
@@ -65,6 +65,14 @@ All routes assume **verified Clerk JWT** and resolve Clerk `sub` → internal `U
 | GET | `/v1/me/profile/versions` | Paginated version list |
 | GET | `/v1/me/profile/versions/:versionId` | One immutable snapshot |
 | PUT | `/v1/me/profile` | Update profile → new `instruction_profile_versions` row |
+
+#### Workflow preferences + schedule
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/v1/me/workflow-preferences` | Load writing style, weekly calendar, carousel style, cron schedule |
+| PUT | `/v1/me/workflow-preferences` | Update workflow preferences and optional cron expression |
+| POST | `/v1/me/drafts/generate` | Generate draft + carousel artifact (accepts optional update request text) |
 
 #### Policy / guardrails
 
@@ -100,6 +108,7 @@ Not exposed on the public internet in production; optional during development.
 | Method | Path | Purpose |
 |--------|------|---------|
 | POST | `/internal/jobs/dispatch` | Optional HTTP trigger for workers |
+| POST | `/internal/jobs/scheduled-draft-run` | Scheduler trigger path for cron-generated drafts |
 
 Prefer **BullMQ** consumers in `worker/` without public HTTP.
 

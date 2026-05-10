@@ -1,0 +1,23 @@
+# Dependencies & build outputs
+**/node_modules
+**/.next
+**/dist
+**/coverage
+
+# Git / IDE
+.git
+.gitignore
+**/.DS_Store
+
+# Docs & misc (not needed in images)
+**/*.md
+!README.md
+
+# Env files (inject via compose / runtime)
+.env
+.env.*
+!.env.example
+
+# Cursor / tooling
+.cursor
+terminals

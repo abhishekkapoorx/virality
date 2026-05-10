@@ -11,6 +11,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "docker:up": "docker compose up --build",
+    "docker:prod": "docker compose up --build",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up --build --watch",
     "docker:down": "docker compose down -v"
   },
   "devDependencies": {

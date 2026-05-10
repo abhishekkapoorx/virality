@@ -19,6 +19,40 @@ Status: completed (2026-05-10)
 
 ---
 
+## Priority pivot (2026-05-10)
+
+Requested change: prioritize **landing page + post generation workflow** before deeper platform buildout.
+
+### New near-term execution order
+
+1. **Landing page + workflow UX first**
+   - Build `/` as product story and CTA.
+   - Build `/workflow` UI to configure:
+     - user writing style (per user, DB-backed)
+     - weekly calendar (per user, DB-backed)
+     - carousel design language (per user, DB-backed)
+     - cron schedule (`/set-repeat` compatible expression)
+   - Add minimal settings routes for Slack and profile preferences.
+
+2. **Post generation workflow foundation**
+   - Inputs to generation: writing style + weekly calendar + optional update request.
+   - Output: post draft + generated carousel artifact.
+   - Delivery targets: Slack + website.
+   - Keep LLM and image generation as adapter-friendly stubs first, then replace with real providers.
+
+3. **Scheduling first-class path**
+   - Add per-user cron configuration in data model.
+   - Trigger workflow via:
+     - website preference update
+     - Slack command (`/set-repeat <cron>`)
+     - internal scheduled trigger endpoint / worker.
+
+4. **Then resume remaining platform phases**
+   - Continue with Clerk + full DB models + connector hardening + history.
+   - Keep original phase list below as backlog reference and reorder during implementation.
+
+---
+
 ## Phase 1 — Data model and Prisma
 
 3. **Extend Prisma schema** toward ARCHITECTURE §8: `Connector`, `Conversation`, `InstructionProfile`, `InstructionProfileVersion`, `Draft`, `WorkflowState` (or enum + fields on `Draft`/`Conversation` — pick one representation), `AuditEvent`. Add `clerkUserId` (unique) on `User` and keep `email` in sync.

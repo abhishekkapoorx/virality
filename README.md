@@ -25,8 +25,14 @@ Monorepo initialized from architecture plan with:
 
 ## Docker
 
-- Start full stack: `pnpm docker:up`
-- Stop and remove volumes: `pnpm docker:down`
+Images use **Node.js 22** (`node:22-alpine`) with multi-stage Dockerfiles (`development` vs final **`production`**).
+
+- **Production-style stack** (optimized runtime images): `pnpm docker:up` (same as `pnpm docker:prod`)
+- **Dev stack + live sync** ([Compose Watch](https://docs.docker.com/compose/how-tos/development/)): `pnpm docker:dev`  
+  Requires Docker Compose **v2.22+**. Syncs `./api`, `./web`, `./worker`, and `./packages/shared` into containers for hot reload.
+- Stop and remove volumes (default compose project): `pnpm docker:down`
+
+Override the API URL baked into the **production** Next.js image by setting `NEXT_PUBLIC_API_URL` in your environment before `docker compose up --build` (defaults to `http://localhost:4000` in `docker-compose.yml`).
 
 ## Environment notes
 

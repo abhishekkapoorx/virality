@@ -9,6 +9,7 @@ Scope: MVP architecture (Slack first, DB-backed instruction profiles, cloud-host
 
 - Keep one deterministic agent workflow across channels.
 - Ship fast with Slack-only connector for MVP.
+- Prioritize landing page plus post-generation workflow before deeper platform phases.
 - Keep compliance strong with human approval before publish.
 - Store user instruction profiles in database (no external document dependency for now).
 - Preserve a clean adapter boundary for future WhatsApp/Discord connectors.
@@ -55,8 +56,10 @@ flowchart LR
 - **Slack Adapter**: verifies Slack requests and maps interaction payloads to canonical events.
 - **Orchestration API**: auth (Slack-signed ingress vs Clerk-verified web requests), tenant routing, idempotency, request normalization.
 - **Workflow Engine**: state machine for intake -> draft -> refine -> approve/reject -> ready-to-publish.
+- **Scheduler**: per-user cron-triggered workflow starts.
 - **Policy Layer**: style checks, banned phrases, claim guardrails.
 - **Instruction Profile Service**: loads versioned profile snapshots from DB.
+- **Carousel Renderer**: generates a carousel artifact from per-user carousel design language.
 - **Audit/Event Store**: immutable record for compliance and debugging.
 
 ### Authentication (web): Clerk
@@ -95,7 +98,7 @@ flowchart TD
 
 ---
 
-## 4) Runtime request flow (user -> draft)
+## 4) Runtime request flow (user -> draft + carousel)
 
 ```mermaid
 sequenceDiagram
@@ -108,17 +111,19 @@ sequenceDiagram
   participant P as Policy Layer
   participant L as LLM
 
-  U->>S: Send raw post idea
-  S->>A: Event callback (signed request)
+  U->>S: Send raw post idea or requested draft updates
+  S->>A: Event callback / slash command (signed request)
   A->>A: Verify signature + idempotency
   A->>E: Canonical InboundMessage
-  E->>DB: Load tenant + instruction profile snapshot
+  E->>DB: Load writing style + weekly calendar + carousel style
   E->>P: Build guarded prompt context
   P->>L: Generate draft
   L-->>P: Draft response
   P-->>E: Validated draft
-  E->>DB: Persist draft + state + audit event
-  E-->>S: OutboundPayload (draft + actions)
+  E->>E: Generate carousel artifact (placeholder/real)
+  E->>DB: Persist draft + carousel + state + audit event
+  E-->>S: OutboundPayload (draft + carousel + actions)
+  E-->>U: Web payload for dashboard/history
   S-->>U: Show draft with Approve/Refine/Reject
 ```
 
@@ -216,6 +221,8 @@ Core tables:
 - conversations
 - instruction_profiles
 - instruction_profile_versions
+- workflow_preferences (per-user writing style, weekly calendar, carousel design language)
+- schedule_configs (per-user cron expression + enabled flag + source)
 - drafts
 - workflow_states
 - audit_events
@@ -227,9 +234,46 @@ Core tables:
 - Versioned rows in `instruction_profile_versions`.
 - Draft stores `instruction_profile_version_id` for traceability.
 
+### Workflow preference and schedule model
+
+- `workflow_preferences` stores user-configurable:
+  - `writingStyle`
+  - `weeklyCalendar`
+  - `carouselDesignLanguage`
+- `schedule_configs` stores:
+  - `cronExpression` (Unix cron)
+  - `enabled`
+  - `updatedVia` (`web` or `slack_command`)
+- Slack command `/set-repeat` updates `schedule_configs` through the same API contract as the web settings page.
+
 ---
 
-## 9) Future connector expansion architecture
+## 9) Trigger and delivery paths (priority slice)
+
+```text
+Manual trigger path:
+Web form or Slack message -> API draft generation endpoint
+  -> Load per-user preferences
+  -> LLM draft
+  -> Carousel generation step
+  -> Return/persist for Slack + Web targets
+
+Scheduled trigger path:
+Cron scheduler tick
+  -> Resolve users with enabled schedule_configs
+  -> Trigger same draft generation pipeline
+  -> Deliver to Slack + Web
+
+Slack scheduling command path:
+/set-repeat <cron expression>
+  -> Slack command endpoint
+  -> Validate expression + upsert schedule_configs
+  -> Acknowledge updated cadence
+```
+
+---
+
+## 10) Future connector expansion architecture
 
 ```text
 Current:
@@ -246,7 +290,7 @@ They must not contain business workflow logic.
 
 ---
 
-## 10) Non-functional architecture requirements
+## 11) Non-functional architecture requirements
 
 - **Security**: signed Slack webhooks, **Clerk JWT validation** for web-originated API calls, encrypted tokens (Slack, DB), strict tenant scoping.
 - **Reliability**: idempotent event handling, retries with bounded backoff, dead-letter queue for failed jobs.
@@ -255,7 +299,7 @@ They must not contain business workflow logic.
 
 ---
 
-## 11) Possible tech stack (MVP)
+## 12) Possible tech stack (MVP)
 
 This stack is intentionally pragmatic: fast to ship, easy to operate, and aligned with Slack-first workflow + future adapter expansion.
 
@@ -288,7 +332,7 @@ This stack is intentionally pragmatic: fast to ship, easy to operate, and aligne
 
 ---
 
-## 12) Open architecture decisions
+## 13) Open architecture decisions
 
 1. Tenant model: workspace-first B2B vs user-first prosumer.
 2. Profile ownership: user-level profile only vs user + org policy layering.

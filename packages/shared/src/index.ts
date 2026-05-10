@@ -11,3 +11,32 @@ export interface HealthResponse {
   status: "ok";
   timestamp: string;
 }
+
+export type DeliveryChannel = "slack" | "web";
+
+export const DELIVERY_CHANNELS: DeliveryChannel[] = ["slack", "web"];
+
+export interface WorkflowPreferences {
+  writingStyle: string;
+  weeklyCalendar: string;
+  carouselDesignLanguage: string;
+  cronExpression: string;
+}
+
+export interface WorkflowPreferencesRecord extends WorkflowPreferences {
+  userId: string;
+  updatedAt: string;
+}
+
+export interface GenerateDraftRequest {
+  userId: string;
+  updateRequest?: string;
+}
+
+export interface GenerateDraftResponse {
+  userId: string;
+  post: string;
+  carouselArtifactUrl: string;
+  targets: DeliveryChannel[];
+  usedUpdateRequest: string | null;
+}
