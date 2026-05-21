@@ -1,6 +1,6 @@
 # LinkedIn Agent Architecture
 
-Last updated: 2026-05-10  
+Last updated: 2026-05-19  
 Scope: MVP architecture (Slack first, DB-backed instruction profiles, cloud-hosted stack)
 
 ---
@@ -329,6 +329,12 @@ This stack is intentionally pragmatic: fast to ship, easy to operate, and aligne
 - OpenAI/Anthropic adapter
 - Sentry + OpenTelemetry
 - GitHub Actions + Vercel + Fly.io
+
+### Shared package (`@linkedin-agent/shared`)
+
+- Source lives in `packages/shared/src/`; **consumers import the built artifact** in `packages/shared/dist/` (`tsup`, ESM + types via `package.json` `exports`).
+- **Web (Next.js)** must not map `@linkedin-agent/shared` to `src/` in `web/tsconfig.json` — webpack cannot resolve TypeScript’s `.js` extension imports against raw source. Use workspace resolution only; `pnpm dev` at the repo root runs `predev` to build shared first; `web` also has a `prebuild` hook.
+- **API / worker** may keep a `paths` alias to `../packages/shared/src` for local typechecking against source when running under `tsx`.
 
 ---
 

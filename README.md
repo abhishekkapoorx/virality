@@ -12,9 +12,11 @@ Monorepo initialized from architecture plan with:
 
 1. Install dependencies:
    - `pnpm install`
-2. Copy env examples as needed:
+2. Build shared types (also runs automatically before `pnpm dev` via `predev`):
+   - `pnpm --filter @linkedin-agent/shared build`
+3. Copy env examples as needed:
    - `cp .env.example .env` (or create manually on Windows)
-3. Run locally:
+4. Run locally:
    - `pnpm dev`
 
 ## Validation scripts

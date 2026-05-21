@@ -66,12 +66,22 @@ All routes assume **verified Clerk JWT** and resolve Clerk `sub` → internal `U
 | GET | `/v1/me/profile/versions/:versionId` | One immutable snapshot |
 | PUT | `/v1/me/profile` | Update profile → new `instruction_profile_versions` row |
 
-#### Workflow preferences + schedule
+#### Workflow context (Postgres — replaces n8n Google Docs)
+
+Pre-auth: `userId` defaults to `DEMO_USER_ID` (`demo-user`). Post-auth: Clerk `sub` → internal user id.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/v1/me/workflow-preferences` | Load writing style, weekly calendar, carousel style, cron schedule |
-| PUT | `/v1/me/workflow-preferences` | Update workflow preferences and optional cron expression |
+| GET | `/v1/me/workflow-context` | Load `configText`, `styleText`, `scheduleText`, `hookSystemText`, carousel + cron |
+| PUT | `/v1/me/workflow-context` | Upsert per-user prompt context (web `/workflow`) |
+| GET | `/internal/v1/workflow-context` | Worker bundle for LangGraph `loadContext` (query: `userId`, optional `userFeedback`) |
+
+#### Workflow preferences + schedule (legacy alias)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/v1/me/workflow-preferences` | Alias: maps DB context → legacy `writingStyle` / `weeklyCalendar` fields |
+| PUT | `/v1/me/workflow-preferences` | Partial update (style + schedule + carousel + cron only) |
 | POST | `/v1/me/drafts/generate` | Generate draft + carousel artifact (accepts optional update request text) |
 
 #### Policy / guardrails

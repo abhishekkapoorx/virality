@@ -16,6 +16,7 @@ RUN pnpm install --frozen-lockfile --filter @linkedin-agent/web... --filter @lin
 FROM deps AS development
 COPY web ./web
 COPY packages/shared ./packages/shared
+RUN pnpm --filter @linkedin-agent/shared build
 WORKDIR /app
 ENV NODE_ENV=development
 # File watching inside Docker (especially bind mounts on Windows/macOS)

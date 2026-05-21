@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/smoke.test.ts"
+    "test": "tsx --test src/smoke.test.ts src/graph/__tests__/graph.happy.test.ts src/graph/__tests__/graph.failure.test.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.1.45",

@@ -1,0 +1,896 @@
+{
+    "name": "LinkedIn-Agent",
+    "nodes": [
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          -3072,
+          816
+        ],
+        "id": "e106638c-2039-4d86-9c71-9ea9b39d00b9",
+        "name": "When clicking ‘Execute workflow’"
+      },
+      {
+        "parameters": {
+          "operation": "get",
+          "documentURL": "https://docs.google.com/document/d/1jdy0NGOZeIHzmPbZ_m5Fn8n83M7aQdPtqdy8_R6ZDy8/edit?tab=t.0"
+        },
+        "type": "n8n-nodes-base.googleDocs",
+        "typeVersion": 2,
+        "position": [
+          -2608,
+          720
+        ],
+        "id": "cb4af62c-77b9-4592-a2c1-1f82162862fa",
+        "name": "LinkedIn_Config",
+        "credentials": {
+          "googleDocsOAuth2Api": {
+            "id": "FD3oDdRtl3T8Qhix",
+            "name": "Google Docs account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "get",
+          "documentURL": "https://docs.google.com/document/d/1_3m8UZ72mmEAyYaJZqZ4ZWTH3MoA3MGlkV9IC4_2rRE/edit?tab=t.0"
+        },
+        "type": "n8n-nodes-base.googleDocs",
+        "typeVersion": 2,
+        "position": [
+          -2608,
+          912
+        ],
+        "id": "4005ff64-f247-4497-a15f-227661495386",
+        "name": "Style_Guide",
+        "credentials": {
+          "googleDocsOAuth2Api": {
+            "id": "FD3oDdRtl3T8Qhix",
+            "name": "Google Docs account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "get",
+          "documentURL": "https://docs.google.com/document/d/1Sa8sMdMoqlGFGM9goaCfLBE2Ne5cFoeO8_fzCDA22Es/edit?tab=t.0"
+        },
+        "type": "n8n-nodes-base.googleDocs",
+        "typeVersion": 2,
+        "position": [
+          -2608,
+          1104
+        ],
+        "id": "c8e79367-8ac3-4d9c-b9e8-29d2f33dfb56",
+        "name": "Weekly_Post_Schedule",
+        "credentials": {
+          "googleDocsOAuth2Api": {
+            "id": "FD3oDdRtl3T8Qhix",
+            "name": "Google Docs account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "get",
+          "documentURL": "https://docs.google.com/document/d/1iDWYttub-Xyv80EHz6bZxXaWxudr7K93IzcKLXeE0c0/edit?tab=t.0"
+        },
+        "type": "n8n-nodes-base.googleDocs",
+        "typeVersion": 2,
+        "position": [
+          -2608,
+          1296
+        ],
+        "id": "731fe9c4-e69c-4cef-b7e6-bf43fc465055",
+        "name": "Content_Hook_System",
+        "credentials": {
+          "googleDocsOAuth2Api": {
+            "id": "FD3oDdRtl3T8Qhix",
+            "name": "Google Docs account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "numberInputs": 5
+        },
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3.2,
+        "position": [
+          -2336,
+          1312
+        ],
+        "id": "9f7dbdb1-5bb4-4e11-812c-2bda70690248",
+        "name": "Merge"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Using this weekly schedule:\n{{ $json.schedule_text }}\n\nToday is: {{new Date().toLocaleString(\"en-US\", { weekday: \"long\" })}}\n\nUser Feedback:\n{{ $json.user_feedback }}",
+          "hasOutputParser": true,
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3,
+        "position": [
+          -1456,
+          1200
+        ],
+        "id": "c402a464-655f-4f2e-8eb2-504885532f7f",
+        "name": "Get Post Type from Docs"
+      },
+      {
+        "parameters": {
+          "language": "python",
+          "pythonCode": "import datetime\n\n# Get the current date\ncurrent_date = datetime.date.today()\n\n# Get the full name of the day\nday_name_full = current_date.strftime(\"%A\")\n\n# prompt = \"\"\n\n# headlines = [\n#   \"LinkedInConfig\",\n#   \"WritingStyleGuide\",\n#   \"WeeklyPostSchedule\",\n#   \"ContentHookSystem\"\n# ]\n\n# for headline, content in zip(headlines, _input.all()):\n#   prompt += f\"\\n<{headline}>\\n{content.json[\"content\"]}\\n<{headline}/>\\n\"\n\nprint(len(_input.all()))\nret = {\n  \"config_text\": _input.all()[0].json[\"content\"],\n  \"style_text\": _input.all()[1].json[\"content\"],\n  \"schedule_text\": _input.all()[2].json[\"content\"],\n  \"hook_system_text\": _input.all()[3].json[\"content\"],\n  \"today_day\": day_name_full\n}\nif len(_input.all()) == 5:\n  ret[\"user_feedback\"] = _input.all()[4].json[\"msg\"] if _input.all()[4].json[\"msg\"] else \"None\"\nelse:\n  ret[\"user_feedback\"] = \"None\"\n\nreturn ret\n  \n# return {\"prompt\": f\"Today's: {day_name_full}\\n\" + prompt, \"today_day\": day_name_full}"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -2112,
+          1216
+        ],
+        "id": "47790e8c-57fa-492c-9167-f7a39db4740d",
+        "name": "Concated Context"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=You are selecting the best hook type.\n\nToday's post type:\n{{ $json.output.type }}\n\nPost goal:\n{{ $json.output.goal }}\n\nHook system:\n{{ $('Concated Context').item.json.hook_system_text }}\n\nUser Feedback:\n{{ $('Concated Context').item.json.user_feedback }}",
+          "hasOutputParser": true,
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3,
+        "position": [
+          -1104,
+          1200
+        ],
+        "id": "cb81d1a6-9c16-4cce-a62b-25be9b7d23fc",
+        "name": "Choose Best Hook"
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-5-nano"
+          },
+          "builtInTools": {
+            "webSearch": {
+              "searchContextSize": "medium"
+            }
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -1104,
+          1424
+        ],
+        "id": "fd830bf5-e9f2-4cd3-a877-46081f7a5422",
+        "name": "OpenAI Chat Model2",
+        "credentials": {
+          "openAiApi": {
+            "id": "0lPjd9Dr1xJMXYBU",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "schemaType": "manual",
+          "inputSchema": "{\n\t\"type\": \"object\",\n\t\"properties\": {\n\t\t\"type\": {\n\t\t\t\"type\": \"string\",\n\t\t\t\"description\": \"The specific post type for today's LinkedIn content (e.g., 'Belief Reversal', 'Translation', 'Rejection Story', '1-Minute Fix', 'Storytelling', etc.).\"\n\t\t},\n\t\t\"goal\": {\n\t\t\t\"type\": \"string\",\n\t\t\t\"description\": \"The primary objective of this post type—such as reach, saves, comments, watch time, or follower growth. Describes what outcome this style is intended to achieve.\"\n\t\t},\n\t\t\"description\": {\n\t\t\t\"type\": \"string\",\n\t\t\t\"description\": \"A short explanation of how this post type works, what structure it follows, and why it is effective for today's content strategy.\"\n\t\t}\n\t},\n\t\"required\": [\"type\", \"goal\", \"description\"]\n}\n"
+        },
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          -1328,
+          1424
+        ],
+        "id": "bbb3baf8-664c-4b80-9819-03b9efeda386",
+        "name": "Parser for Post Type"
+      },
+      {
+        "parameters": {
+          "schemaType": "manual",
+          "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"hook_type\": {\n      \"type\": \"string\",\n      \"description\": \"The category of hook chosen based on the post type and goal. Examples include: 'Negative Warning', 'Lie Reveal', 'Curiosity Gap', 'Educational', 'Storytelling', 'Specific Audience Call-Out'.\"\n    },\n    \"sample_hook\": {\n      \"type\": \"string\",\n      \"description\": \"A concrete example of a hook phrase that fits the selected hook_type. This is a ready-to-use hook or a strong starting point for the final LinkedIn post.\"\n    }\n  },\n  \"required\": [\"hook_type\", \"sample_hook\"]\n}\n"
+        },
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          -976,
+          1424
+        ],
+        "id": "ce3b219f-c764-4c1b-a702-f0223529f8a4",
+        "name": "Parser for Best Hook"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Write a LinkedIn post using:\n\nCONFIG:\n{{ $('Concated Context').item.json.config_text }}\n\nSTYLE GUIDE:\n{{ $('Concated Context').item.json.style_text }}\n\nHOOK TYPE:\n{{ $json.output.hook_type }}\n\nHOOK EXAMPLE:\n{{ $json.output.sample_hook }}\n\nPOST TYPE:\n{{ $('Get Post Type from Docs').item.json.output.type }} - {{ $('Get Post Type from Docs').item.json.output.description }}\n\nUser Feedback:\n{{ $('Concated Context').item.json.user_feedback }}\n\nRULES:\n- Start with a hook based on the selected hook type.\n- Use BUT → THEREFORE storytelling loops.\n- Use sentence length variation:\n  - SMALL (3–8 words)\n  - MEDIUM (12–20 words)\n  - LARGE (25+ words)\n  Mix them as described in the style guide.\n- Add one personal story lens.\n- Follow the formula for selected post type.\n- Prioritize clarity, simplicity, and visual thinking.\n- End with a SMALL punchline sentence.\n- Add hashtags from config.\n",
+          "hasOutputParser": true,
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3,
+        "position": [
+          -752,
+          1200
+        ],
+        "id": "6fb71a62-f678-4c70-a70a-349d2c3a94c0",
+        "name": "Generate Post"
+      },
+      {
+        "parameters": {
+          "schemaType": "manual",
+          "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"draft\": {\n      \"type\": \"string\",\n      \"description\": \"The fully written LinkedIn post generated by the AI, including the hook, story structure, BUT → THEREFORE loops, sentence-length variation, personal lens, and hashtags. This is the final post text ready to be sent for Slack approval.\"\n    }\n  },\n  \"required\": [\"draft\"]\n}\n"
+        },
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          -624,
+          1424
+        ],
+        "id": "45f995ef-080b-48c3-a46b-9ce96c15f487",
+        "name": "Structured Output Parser"
+      },
+      {
+        "parameters": {
+          "select": "channel",
+          "channelId": {
+            "__rl": true,
+            "value": "C0A0Q25FL92",
+            "mode": "list",
+            "cachedResultName": "post-drafts"
+          },
+          "messageType": "block",
+          "blocksUi": "={\n  \"blocks\": [\n    {\n      \"type\": \"header\",\n      \"text\": {\n        \"type\": \"plain_text\",\n        \"text\": \"🚀 New LinkedIn Draft Generated\",\n        \"emoji\": true\n      }\n    },\n    {\n      \"type\": \"section\",\n      \"fields\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Post Type:*\\n{{ $('Get Post Type from Docs').item.json.output.type || 'Standard Post' }}\"\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Hook Type:*\\n{{ $('Choose Best Hook').item.json.output.hook_type || 'General Hook' }}\"\n        }\n      ]\n    },\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*Sample Hook:*\\n{{ JSON.stringify(($('Choose Best Hook').item.json.output.sample_hook || 'No hook generated').substring(0, 2800)).slice(1, -1) }}\"\n      }\n    },\n    {\n      \"type\": \"divider\"\n    },\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*Draft:*\\n{{ JSON.stringify(($('Generate Post').item.json.output.draft || 'No draft content generated').substring(0, 2800)).slice(1, -1) }}\"\n      }\n    },\n    {\n      \"type\": \"divider\"\n    },\n    {\n      \"type\": \"context\",\n      \"elements\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Image URL:* {{ $json.webViewLink || 'No Image Available' }}\"\n        }\n      ]\n    },\n    {\n      \"type\": \"divider\"\n    },\n    {\n      \"type\": \"context\",\n      \"elements\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"💬 *Approval Instructions:* Reply to this message thread with:\\n• `APPROVE`\\n• `REJECT: <your feedback>`\"\n        }\n      ]\n    },\n    {\n      \"type\": \"context\",\n      \"elements\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"_Waiting for your response…_\"\n        }\n      ]\n    },\n    {\n      \"type\": \"divider\"\n    }\n  ]\n}",
+          "text": "=🚀 New LinkedIn Draft Generated\nWaiting for your response…\n",
+          "otherOptions": {}
+        },
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          880,
+          1200
+        ],
+        "id": "a0ac4d83-7b93-44b4-be4a-9079c6c74d38",
+        "name": "Send a message",
+        "webhookId": "8547d441-22ba-4f0b-a3a4-c05e3e1dc56e",
+        "credentials": {
+          "slackApi": {
+            "id": "lDTdjmwp7OEB5NuQ",
+            "name": "Slack account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "dataTableId": {
+            "__rl": true,
+            "value": "czEuXuebnREMzuGu",
+            "mode": "list",
+            "cachedResultName": "post_data",
+            "cachedResultUrl": "/projects/2egM7Id9iVlnj7d2/datatables/czEuXuebnREMzuGu"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "type": "={{ $('Get Post Type from Docs').item.json.output.type }}",
+              "hook": "={{ $('Choose Best Hook').item.json.output.hook_type }}",
+              "draft": "={{ $('Generate Post').item.json.output.draft }}",
+              "msgTS": "={{ $json.message_timestamp }}",
+              "isAccepted": "FALSE",
+              "img_link": "={{ $('Upload file').item.json.webViewLink }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "type",
+                "displayName": "type",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "hook",
+                "displayName": "hook",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "draft",
+                "displayName": "draft",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "isAccepted",
+                "displayName": "isAccepted",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "msgTS",
+                "displayName": "msgTS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "img_link",
+                "displayName": "img_link",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1,
+        "position": [
+          1104,
+          1200
+        ],
+        "id": "0d4ddeed-0b65-486e-b0f2-54027b312351",
+        "name": "Insert row"
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "gpt-5-nano",
+            "mode": "list",
+            "cachedResultName": "gpt-5-nano"
+          },
+          "builtInTools": {
+            "webSearch": {
+              "searchContextSize": "medium"
+            }
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -1456,
+          1424
+        ],
+        "id": "ea44edee-ad7d-4a17-b0bd-bef580aa47de",
+        "name": "OpenAI Chat Model3",
+        "credentials": {
+          "openAiApi": {
+            "id": "0lPjd9Dr1xJMXYBU",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "gpt-5-nano",
+            "mode": "list",
+            "cachedResultName": "gpt-5-nano"
+          },
+          "builtInTools": {
+            "webSearch": {
+              "searchContextSize": "medium"
+            }
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -752,
+          1424
+        ],
+        "id": "d0e3d507-d0e8-483c-8edf-8f154762166b",
+        "name": "OpenAI Chat Model4",
+        "credentials": {
+          "openAiApi": {
+            "id": "0lPjd9Dr1xJMXYBU",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "image",
+          "prompt": "={{ $json.output }}",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 2.1,
+        "position": [
+          224,
+          1200
+        ],
+        "id": "0076f7aa-e38a-4017-ae83-7485795cacd4",
+        "name": "Generate an image",
+        "credentials": {
+          "openAiApi": {
+            "id": "0lPjd9Dr1xJMXYBU",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "gpt-5-mini",
+            "mode": "list",
+            "cachedResultName": "gpt-5-mini"
+          },
+          "builtInTools": {},
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -48,
+          1424
+        ],
+        "id": "aead7e05-080d-4d81-8f63-492584851365",
+        "name": "OpenAI Chat Model",
+        "credentials": {
+          "openAiApi": {
+            "id": "0lPjd9Dr1xJMXYBU",
+            "name": "OpenAi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=# LinkedIn Visual Generation Prompt\n\nYou are creating a single professional LinkedIn post visual optimized for DALL-E 3.\n\n## INPUT DATA\n\n**Post Type:**\n{{ $('Get Post Type from Docs').item.json.output.type }}\n\n**Post Content:**\n{{ $json.output.draft }}\n\n**User Feedback:**\n{{ $('Concated Context').item.json.user_feedback }}\n\n## DESIGN SPECIFICATIONS\n\n**Color Palette:**\n- Primary: Neon blue (#00D9FF)\n- Background: Pure black (#000000)\n- Text: White (#FFFFFF)\n- Accents: Subtle gray only if needed\n\n**Style Requirements:**\n- Clean, flat design\n- No gradients or shadows\n- High contrast\n- Sharp geometric shapes\n- Minimalist line icons\n- Professional LinkedIn aesthetic\n- Generous negative space\n- Mobile-optimized clarity\n\n## VISUAL CONCEPT BY POST TYPE\n\n**Belief Reversal:**\nCreate a split or contrasted visual showing the \"old belief\" versus \"new truth\". Use geometric shapes like opposing arrows, flipped elements, or divided frames. Neon blue highlights the transformation.\n\n**Translation Post:**\nDesign a two-panel layout with symbolic icons. Left side shows \"corporate speak\" (polished icon), right side shows \"reality\" (honest icon). Use neon blue divider line between panels.\n\n**Rejection Story:**\nShow a journey visual using simple path or stairs metaphor. Dark beginning transitioning to neon blue illuminated end. Minimal symbolic object (door, mountain peak, open book).\n\n**1-Minute Fix:**\nClean infographic style. Central icon representing the solution, surrounded by 2-3 simple supporting elements. Neon blue highlights the key action step.\n\n**Storytelling Post:**\nSingle powerful symbolic object on black background with dramatic neon blue lighting. Examples: open road, glowing lightbulb, ascending stairs, open notebook with blue glow.\n\n## TEXT GUIDELINES\n\n- Maximum 3-5 words only\n- Use only if absolutely necessary\n- Place text strategically (top or bottom third)\n- White sans-serif font\n- High contrast against black background\n- Examples: \"The Truth\", \"Before → After\", \"The Fix\"\n\n## COMPOSITION RULES\n\n- 4:3 aspect ratio (1200x900px or 1600x1200px)\n- Center-weighted or rule-of-thirds composition\n- Single focal point\n- Clear visual hierarchy\n- Breathing room around all elements\n- Professional, not playful\n\n## DALL-E 3 PROMPT STRUCTURE\n\nCreate the prompt following this exact format:\n\n\"A professional minimalist LinkedIn post graphic in 4:3 aspect ratio. [DESCRIBE MAIN VISUAL CONCEPT]. Black background with neon blue (#00D9FF) accents. [DESCRIBE COMPOSITION AND LAYOUT]. Clean flat design, no gradients, no shadows, high contrast. [DESCRIBE SPECIFIC ELEMENTS: shapes, icons, metaphors]. White text showing '[TEXT CONTENT]' if needed. Professional, modern, mobile-optimized. Photorealistic quality with sharp details.\"\n\n## OUTPUT REQUIREMENTS\n\nGenerate a single DALL-E 3 prompt (150-200 words) that:\n1. Starts with technical specifications\n2. Describes the core visual metaphor clearly\n3. Specifies exact colors (black, neon blue, white)\n4. Details composition and element placement\n5. Emphasizes flat design and high contrast\n6. Ends with quality and style modifiers\n7. Includes \"4:3 aspect ratio\" requirement\n\nReturn ONLY the final DALL-E 3 prompt, no explanations or meta-commentary.",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3,
+        "position": [
+          -128,
+          1200
+        ],
+        "id": "7d47c445-8f3d-4020-930a-eaf16c4582fa",
+        "name": "Generate Prompt to Generate Image"
+      },
+      {
+        "parameters": {
+          "name": "=linkedin-post-{{ DateTime.now().format('yyyy-MM-dd-hh-mm-ss') }}.png",
+          "driveId": {
+            "__rl": true,
+            "value": "My Drive",
+            "mode": "list",
+            "cachedResultName": "My Drive",
+            "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "value": "1lhASaO6eiuaamXDz-3RH_rKRs4ALu55T",
+            "mode": "list",
+            "cachedResultName": "linkein-post-images",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/1lhASaO6eiuaamXDz-3RH_rKRs4ALu55T"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.googleDrive",
+        "typeVersion": 3,
+        "position": [
+          656,
+          1200
+        ],
+        "id": "1b80b439-2e56-455c-a9cf-a8891856bd16",
+        "name": "Upload file",
+        "credentials": {
+          "googleDriveOAuth2Api": {
+            "id": "yYPRPYuXqcdY5VDy",
+            "name": "Google Drive account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "msg"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -3008,
+          1568
+        ],
+        "id": "37b77553-7538-48da-b62e-9f49efd6e0aa",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "content": "# 1. Get Context\n### _This part of the workflow fetch the following context from the google docs:_\n- Post Style Guide\n- Weekly calendar\n- LinkedIn Config\n- Content Hook System",
+          "height": 1136,
+          "width": 1360,
+          "color": 2
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "position": [
+          -3280,
+          592
+        ],
+        "typeVersion": 1,
+        "id": "8d71122b-1a9e-4bd0-8aeb-c85975031929",
+        "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "content": "## Post Generation\n\nThis workflow generates LinkedIn posts using a structured, AI-driven pipeline. \n1. It first analyzes the weekly schedule, current day, and user feedback to determine the most suitable **post type**, goal, and description. \n2. Based on this output, it selects the **best hook type and example** using a predefined hook system. \n3. Finally, it generates a complete LinkedIn post following strict rules for hooks, BUT → THEREFORE storytelling, sentence-length variation, personal context, clarity, and hashtags. \n4. The final output is a **structured post draft**, ready for review or approval.\n",
+          "height": 848,
+          "width": 1168
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -1600,
+          800
+        ],
+        "id": "bc744f31-e32b-415b-9c0a-ed50f9137c7b",
+        "name": "Sticky Note1"
+      },
+      {
+        "parameters": {
+          "content": "## LinkedIn Image Generation Workflow – n8n\n\n- Reads the final LinkedIn **post type**, **post draft**, and **user feedback**\n- Converts the post’s hook, emotion, and transformation into a **single visual concept**\n- Applies strict image rules: minimal design, cinematic lighting, symbolic metaphors, and no clutter\n- Selects visual style dynamically based on post type (belief reversal, storytelling, fix, etc.)\n- Generates a detailed image prompt in **4:3 aspect ratio**\n- Uses OpenAI to generate the final image\n- Automatically uploads the image to a specified **Google Drive folder**\n- Produces a LinkedIn-ready visual optimized for feed thumbnails\n\n",
+          "height": 656,
+          "width": 704,
+          "color": 4
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "position": [
+          -304,
+          912
+        ],
+        "typeVersion": 1,
+        "id": "b8394eb4-b322-4f69-8fce-e477eb8bc73e",
+        "name": "Sticky Note2"
+      },
+      {
+        "parameters": {
+          "content": "## LinkedIn Draft Review & Logging Workflow – n8n\n\n- Uploads the generated LinkedIn post image to **Google Drive**\n- Sends a structured **Slack message** to the `#post-drafts` channel\n- Displays post metadata: **Post Type**, **Hook Type**, **Sample Hook**, and **Full Draft**\n- Includes the **image URL** for quick preview\n- Provides clear approval instructions (`APPROVE` / `REJECT + feedback`)\n- Captures the Slack **message timestamp (TS)** for tracking\n- Stores post data (type, hook, draft, image link, approval status) in a **Data Table**\n- Enables a clean human-in-the-loop approval workflow before publishing\n\n",
+          "height": 656,
+          "width": 848
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          496,
+          912
+        ],
+        "id": "ceb1ac59-ec82-4419-a733-a96e26dcc01f",
+        "name": "Sticky Note3"
+      }
+    ],
+    "pinData": {},
+    "connections": {
+      "When clicking ‘Execute workflow’": {
+        "main": [
+          [
+            {
+              "node": "LinkedIn_Config",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Style_Guide",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Weekly_Post_Schedule",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Content_Hook_System",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "LinkedIn_Config": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Style_Guide": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Weekly_Post_Schedule": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 2
+            }
+          ]
+        ]
+      },
+      "Content_Hook_System": {
+        "main": [
+          [
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 3
+            }
+          ]
+        ]
+      },
+      "Merge": {
+        "main": [
+          [
+            {
+              "node": "Concated Context",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Concated Context": {
+        "main": [
+          [
+            {
+              "node": "Get Post Type from Docs",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Post Type from Docs": {
+        "main": [
+          [
+            {
+              "node": "Choose Best Hook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model2": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Choose Best Hook",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parser for Post Type": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "Get Post Type from Docs",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parser for Best Hook": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "Choose Best Hook",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Choose Best Hook": {
+        "main": [
+          [
+            {
+              "node": "Generate Post",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Structured Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "Generate Post",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate Post": {
+        "main": [
+          [
+            {
+              "node": "Generate Prompt to Generate Image",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send a message": {
+        "main": [
+          [
+            {
+              "node": "Insert row",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model3": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Get Post Type from Docs",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model4": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Generate Post",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Generate Prompt to Generate Image",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate Prompt to Generate Image": {
+        "main": [
+          [
+            {
+              "node": "Generate an image",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate an image": {
+        "main": [
+          [
+            {
+              "node": "Upload file",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Upload file": {
+        "main": [
+          [
+            {
+              "node": "Send a message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "LinkedIn_Config",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Style_Guide",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Weekly_Post_Schedule",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Content_Hook_System",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Merge",
+              "type": "main",
+              "index": 4
+            }
+          ]
+        ]
+      }
+    },
+    "active": false,
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "versionId": "34294104-1f67-4df1-8ce6-f7519018102a",
+    "meta": {
+      "templateCredsSetupCompleted": true,
+      "instanceId": "61396c048326c866da3f4979650031db8ab5f7a1008c771f940918e42df867e8"
+    },
+    "id": "bxwlZjBv2yn2R7Ye",
+    "tags": []
+  }

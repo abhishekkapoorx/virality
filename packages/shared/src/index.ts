@@ -1,5 +1,13 @@
 export * from "./adapters/index.js";
 export * from "./prompts/index.js";
+export * from "./schemas/index.js";
+export { DEMO_USER_ID } from "./constants.js";
+export {
+  UserWorkflowContextSchema,
+  UserWorkflowContextUpsertSchema,
+  type UserWorkflowContext,
+  type UserWorkflowContextUpsert
+} from "./workflowContext.js";
 
 export type WorkflowState =
   | "intake_received"

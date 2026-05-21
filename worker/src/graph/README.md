@@ -2,6 +2,8 @@
 
 This folder is the workflow runtime for the LinkedIn Agent. The engine is **[LangGraph](https://langchain-ai.github.io/langgraphjs/)** (`@langchain/langgraph` + `@langchain/core`). See [`Documentation/decisions/0001-langgraph-as-workflow-engine.md`](../../../Documentation/decisions/0001-langgraph-as-workflow-engine.md) for the rationale.
 
+The graph is a port of the n8n workflow in `linkedin-agent.json`. See [`n8n-mapping.md`](./n8n-mapping.md) and [`Documentation/decisions/0002-n8n-to-langgraph-port.md`](../../../Documentation/decisions/0002-n8n-to-langgraph-port.md).
+
 ## Layout
 
 ```

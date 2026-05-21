@@ -5,6 +5,7 @@
   "description": "Slack-first LinkedIn drafting agent monorepo",
   "packageManager": "pnpm@9.12.2",
   "scripts": {
+    "predev": "pnpm --filter @linkedin-agent/shared build",
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",

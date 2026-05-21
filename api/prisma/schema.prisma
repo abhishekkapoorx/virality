@@ -21,3 +21,17 @@ model User {
   createdAt DateTime @default(now())
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
+
+/// Replaces n8n Google Docs (LinkedIn_Config, Style_Guide, Weekly_Post_Schedule, Content_Hook_System).
+/// One row per user; edited via web UI until Clerk supplies real user ids.
+model UserWorkflowContext {
+  userId                 String   @id
+  configText             String   @default("") @db.Text
+  styleText              String   @default("") @db.Text
+  scheduleText           String   @default("") @db.Text
+  hookSystemText         String   @default("") @db.Text
+  carouselDesignLanguage String   @default("")
+  cronExpression         String   @default("0 9 * * 1")
+  updatedAt              DateTime @updatedAt
+  createdAt              DateTime @default(now())
+}

@@ -4,9 +4,15 @@ import express from "express";
 import { z } from "zod";
 import {
   DELIVERY_CHANNELS,
-  type GenerateDraftResponse,
-  type WorkflowPreferencesRecord
+  type GenerateDraftResponse
 } from "@linkedin-agent/shared";
+
+import { resolveUserId } from "./lib/resolveUserId.js";
+import { workflowContextRouter } from "./routes/workflowContext.js";
+import {
+  getOrCreateWorkflowContext,
+  upsertWorkflowContext
+} from "./services/workflowContextService.js";
 
 const app = express();
 app.use(cors());
@@ -20,17 +26,33 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.get("/health/ready", (_req, res) => {
-  res.json({
+app.get("/health/ready", async (_req, res) => {
+  const databaseUrlConfigured = Boolean(process.env.DATABASE_URL);
+  let databaseReachable = false;
+  if (databaseUrlConfigured) {
+    try {
+      const { prisma } = await import("./lib/prisma.js");
+      await prisma.$queryRaw`SELECT 1`;
+      databaseReachable = true;
+    } catch {
+      databaseReachable = false;
+    }
+  }
+
+  const ok = !databaseUrlConfigured || databaseReachable;
+  res.status(ok ? 200 : 503).json({
     service: "api",
-    status: "ok",
+    status: ok ? "ok" : "degraded",
     timestamp: new Date().toISOString(),
     dependencies: {
-      databaseUrlConfigured: Boolean(process.env.DATABASE_URL),
+      databaseUrlConfigured,
+      databaseReachable,
       redisUrlConfigured: Boolean(process.env.REDIS_URL)
     }
   });
 });
+
+app.use(workflowContextRouter);
 
 const inboundSchema = z.object({
   tenantId: z.string().min(1),
@@ -38,18 +60,8 @@ const inboundSchema = z.object({
   text: z.string().min(1)
 });
 
-const workflowPreferencesStore = new Map<string, WorkflowPreferencesRecord>();
-
-const workflowPreferencesSchema = z.object({
-  userId: z.string().min(1),
-  writingStyle: z.string().min(1),
-  weeklyCalendar: z.string().min(1),
-  carouselDesignLanguage: z.string().min(1),
-  cronExpression: z.string().min(1)
-});
-
 const generateDraftSchema = z.object({
-  userId: z.string().min(1),
+  userId: z.string().min(1).optional(),
   updateRequest: z.string().min(1).optional()
 });
 
@@ -59,26 +71,11 @@ const slackCommandSchema = z.object({
   user_id: z.string().min(1)
 });
 
-function defaultPreferences(userId: string): WorkflowPreferencesRecord {
-  return {
-    userId,
-    writingStyle: "Professional, direct, and practical with one clear takeaway.",
-    weeklyCalendar: "Mon-Fri 09:00-18:00 local time, avoid weekends.",
-    carouselDesignLanguage: "Clean cards with strong headers, concise bullets, high contrast.",
-    cronExpression: "0 9 * * 1",
-    updatedAt: new Date().toISOString()
-  };
-}
-
-function getPreferences(userId: string): WorkflowPreferencesRecord {
-  return workflowPreferencesStore.get(userId) ?? defaultPreferences(userId);
-}
-
-function buildDraftResponse(
+async function buildDraftResponse(
   userId: string,
   updateRequest?: string
-): GenerateDraftResponse {
-  const preferences = getPreferences(userId);
+): Promise<GenerateDraftResponse> {
+  const record = await getOrCreateWorkflowContext(userId);
   const usedUpdateRequest = updateRequest?.trim() || null;
   const updateLine = usedUpdateRequest
     ? `Requested update: ${usedUpdateRequest}.`
@@ -87,8 +84,9 @@ function buildDraftResponse(
   return {
     userId,
     post: [
-      `Writing style: ${preferences.writingStyle}`,
-      `Weekly context: ${preferences.weeklyCalendar}`,
+      `Config: ${record.configText.slice(0, 120)}…`,
+      `Style: ${record.styleText.slice(0, 120)}…`,
+      `Schedule: ${record.scheduleText.slice(0, 120)}…`,
       updateLine,
       "Draft: This week I focused on shipping repeatable content operations that keep quality high while reducing turnaround time."
     ].join(" "),
@@ -98,39 +96,22 @@ function buildDraftResponse(
   };
 }
 
-app.get("/v1/me/workflow-preferences", (req, res) => {
-  const userId = z.string().min(1).safeParse(req.query.userId);
-  if (!userId.success) {
-    return res.status(400).json({ error: "userId query parameter is required" });
-  }
-
-  return res.json(getPreferences(userId.data));
-});
-
-app.put("/v1/me/workflow-preferences", (req, res) => {
-  const parsed = workflowPreferencesSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
-  }
-
-  const updated: WorkflowPreferencesRecord = {
-    ...parsed.data,
-    updatedAt: new Date().toISOString()
-  };
-  workflowPreferencesStore.set(updated.userId, updated);
-  return res.json(updated);
-});
-
-app.post("/v1/me/drafts/generate", (req, res) => {
+app.post("/v1/me/drafts/generate", async (req, res) => {
   const parsed = generateDraftSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
   }
 
-  return res.json(buildDraftResponse(parsed.data.userId, parsed.data.updateRequest));
+  const userId = parsed.data.userId ?? resolveUserId(req);
+  try {
+    return res.json(await buildDraftResponse(userId, parsed.data.updateRequest));
+  } catch (err) {
+    console.error("draft generate failed", err);
+    return res.status(500).json({ error: "Draft generation failed" });
+  }
 });
 
-app.post("/v1/integrations/slack/commands", (req, res) => {
+app.post("/v1/integrations/slack/commands", async (req, res) => {
   const parsed = slackCommandSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
@@ -148,31 +129,38 @@ app.post("/v1/integrations/slack/commands", (req, res) => {
     return res.status(400).json({ error: "Missing cron expression. Usage: /set-repeat <cron>" });
   }
 
-  const current = getPreferences(parsed.data.user_id);
-  const updated: WorkflowPreferencesRecord = {
-    ...current,
-    cronExpression,
-    updatedAt: new Date().toISOString()
-  };
-  workflowPreferencesStore.set(updated.userId, updated);
+  try {
+    const current = await getOrCreateWorkflowContext(parsed.data.user_id);
+    const updated = await upsertWorkflowContext({
+      ...current,
+      cronExpression
+    });
 
-  return res.status(200).json({
-    message: "Repeat schedule updated",
-    userId: updated.userId,
-    cronExpression: updated.cronExpression
-  });
+    return res.status(200).json({
+      message: "Repeat schedule updated",
+      userId: updated.userId,
+      cronExpression: updated.cronExpression
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to update schedule" });
+  }
 });
 
-app.post("/internal/jobs/scheduled-draft-run", (req, res) => {
+app.post("/internal/jobs/scheduled-draft-run", async (req, res) => {
   const parsed = generateDraftSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
   }
 
-  return res.status(202).json({
-    trigger: "scheduled",
-    ...buildDraftResponse(parsed.data.userId, parsed.data.updateRequest)
-  });
+  const userId = parsed.data.userId ?? resolveUserId(req);
+  try {
+    return res.status(202).json({
+      trigger: "scheduled",
+      ...(await buildDraftResponse(userId, parsed.data.updateRequest))
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Scheduled run failed" });
+  }
 });
 
 app.post("/v1/inbound", (req, res) => {
@@ -189,6 +177,5 @@ app.post("/v1/inbound", (req, res) => {
 
 const port = Number(process.env.PORT || 4000);
 app.listen(port, () => {
-  // Intentional single startup log for container health diagnostics
   console.log(`API running on http://localhost:${port}`);
 });
