@@ -1,6 +1,6 @@
 # Feature plan 1 (scratch pad)
 
-Last updated: 2026-05-10
+Last updated: 2026-05-21
 
 Informal **build order** for developing the product one slice at a time. Reorder if pilot feedback says otherwise. Cross-check with [ARCHITECTURE.md](./ARCHITECTURE.md) and [planned-routes.md](./planned-routes.md).
 
@@ -26,7 +26,7 @@ Requested change: prioritize **landing page + post generation workflow** before 
 ### New near-term execution order
 
 1. **Landing page + workflow UX first**
-   - Build `/` as product story and CTA.
+   - Build `/` as product story and CTA. **Shipped (2026-05-21):** hero, interactive flow demo, six core-feature bento, dedicated **`#schedule` cron section** (web + `/set-repeat` + worker path), waitlist. See [feature-landing-page.md](./feature-landing-page.md).
    - Build `/workflow` UI to configure:
      - user writing style (per user, DB-backed)
      - weekly calendar (per user, DB-backed)

@@ -1,6 +1,6 @@
 # Planned routes
 
-Last updated: 2026-05-10  
+Last updated: 2026-05-21  
 Source of truth for product architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 This document lists **planned** HTTP routes for the Express orchestration API, the Next.js web app (App Router), Slack ingress, and Clerk-adjacent endpoints. Paths are stable targets for implementation; naming may shift slightly during build (keep OpenAPI in sync).
@@ -138,7 +138,7 @@ Protect app routes with **Clerk middleware** except marketing/legal/sign-in as c
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Landing / marketing shell |
+| `/` | Landing / marketing shell — sections: `#flow`, `#features`, `#schedule` (per-user cron), `#waitlist`. See [feature-landing-page.md](./feature-landing-page.md). |
 | `/sign-in` | Clerk sign-in (or Clerk-hosted redirect URL — align with `@clerk/nextjs` config) |
 | `/sign-up` | Clerk sign-up |
 | `/privacy`, `/terms` | Legal (if required for Clerk / OAuth directories) |

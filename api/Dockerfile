@@ -7,11 +7,15 @@ RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.12.2 --activate
 
-# Cached install layer — only package manifests + lockfile
+# Cached install layer — manifests + Prisma files required by api postinstall
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY api/package.json ./api/
+COPY api/prisma.config.ts ./api/
+COPY api/prisma ./api/prisma
 COPY packages/shared/package.json ./packages/shared/
+# prisma generate does not connect to the DB; env() still needs a value at build time
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/linkedin_agent"
 RUN pnpm install --frozen-lockfile --filter @linkedin-agent/api... --filter @linkedin-agent/shared...
 
 # ── Development (compose watch / hot reload) ─────────────────────────────
@@ -41,7 +45,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY api/package.json ./api/
 COPY packages/shared/package.json ./packages/shared/
 
-RUN pnpm install --frozen-lockfile --prod --filter @linkedin-agent/api... --filter @linkedin-agent/shared...
+# Client is generated in builder; skip postinstall on prod-only install
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts \
+  --filter @linkedin-agent/api... --filter @linkedin-agent/shared...
 
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json

@@ -1,6 +1,6 @@
 # LinkedIn Agent Architecture
 
-Last updated: 2026-05-19  
+Last updated: 2026-05-21  
 Scope: MVP architecture (Slack first, DB-backed instruction profiles, cloud-hosted stack)
 
 ---
@@ -249,6 +249,8 @@ Core tables:
 ---
 
 ## 9) Trigger and delivery paths (priority slice)
+
+Public marketing copy for the scheduled path lives on the web landing page (`/#schedule`); see [feature-landing-page.md](./feature-landing-page.md).
 
 ```text
 Manual trigger path:
