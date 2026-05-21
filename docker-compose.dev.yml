@@ -2,9 +2,13 @@
 # Requires Docker Compose v2.22+ (`docker compose version`).
 #
 # Usage:
+#   cp .env.example .env   # set NGROK_AUTHTOKEN (ngrok.com dashboard)
 #   docker compose -f docker-compose.dev.yml up --build --watch
 #
 # From repo root package.json: `pnpm docker:dev`
+#
+# ngrok starts with the stack and forwards your reserved domain to the API
+# (Clerk webhooks: https://<NGROK_DOMAIN>/v1/webhooks/clerk).
 
 services:
   postgres:
@@ -43,8 +47,9 @@ services:
       dockerfile: api/Dockerfile
       target: development
     container_name: linkedin-agent-api-dev
+    # Use api/.env for Clerk keys (cp api/.env.example api/.env). Do not use .env.example in Docker.
     env_file:
-      - ./api/.env.example
+      - ./api/.env
     environment:
       NODE_ENV: development
       PORT: ${API_PORT:-4000}
@@ -57,6 +62,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    command:
+      - sh
+      - -c
+      - pnpm --filter @linkedin-agent/api exec prisma migrate deploy && pnpm --filter @linkedin-agent/api dev
     develop:
       watch:
         - action: sync
@@ -153,6 +162,23 @@ services:
           path: ./packages/shared/package.json
         - action: rebuild
           path: ./pnpm-lock.yaml
+
+  # Clerk webhooks (HTTPS → API). Requires NGROK_AUTHTOKEN in repo-root .env.
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: linkedin-agent-ngrok-dev
+    restart: unless-stopped
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Set NGROK_AUTHTOKEN in .env (see .env.example)}
+    command:
+      - http
+      - --url=${NGROK_DOMAIN:-werewolf-refined-urgently.ngrok-free.app}
+      - api:4000
+    ports:
+      - "${NGROK_INSPECT_PORT:-4040}:4040"
+    depends_on:
+      api:
+        condition: service_started
 
 volumes:
   postgres_data_dev:

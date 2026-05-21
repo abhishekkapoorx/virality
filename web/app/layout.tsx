@@ -1,4 +1,5 @@
 import "./globals.css";
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 import type { ReactNode } from "react";
@@ -23,8 +24,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${fraunces.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" className={`${dmSans.variable} ${fraunces.variable}`}>
+        <body className="font-sans antialiased">{children}</body>
+      </html>
+    </ClerkProvider>
   );
 }

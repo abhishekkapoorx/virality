@@ -15,11 +15,12 @@ model Tenant {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  tenantId  String
-  createdAt DateTime @default(now())
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  clerkUserId String?  @unique
+  email       String   @unique
+  tenantId    String
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 /// Replaces n8n Google Docs (LinkedIn_Config, Style_Guide, Weekly_Post_Schedule, Content_Hook_System).

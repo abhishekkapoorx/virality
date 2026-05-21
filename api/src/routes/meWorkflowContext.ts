@@ -4,19 +4,18 @@ import {
   type WorkflowPreferencesRecord
 } from "@linkedin-agent/shared";
 
-import { resolveUserId } from "../lib/resolveUserId.js";
 import {
   getOrCreateWorkflowContext,
   toWorkflowContextBundle,
   upsertWorkflowContext
 } from "../services/workflowContextService.js";
+import { getAuth } from "../types/auth.js";
 
-export const workflowContextRouter = Router();
+export const meWorkflowContextRouter = Router();
 
-/** User-facing CRUD for prompt context (replaces Google Docs). */
-workflowContextRouter.get("/v1/me/workflow-context", async (req, res) => {
+meWorkflowContextRouter.get("/workflow-context", async (req, res) => {
   try {
-    const userId = resolveUserId(req);
+    const userId = getAuth(req).internalUserId;
     const record = await getOrCreateWorkflowContext(userId);
     return res.json(record);
   } catch (err) {
@@ -25,8 +24,8 @@ workflowContextRouter.get("/v1/me/workflow-context", async (req, res) => {
   }
 });
 
-workflowContextRouter.put("/v1/me/workflow-context", async (req, res) => {
-  const userId = resolveUserId(req);
+meWorkflowContextRouter.put("/workflow-context", async (req, res) => {
+  const userId = getAuth(req).internalUserId;
   const parsed = UserWorkflowContextUpsertSchema.safeParse({
     ...req.body,
     userId
@@ -47,13 +46,9 @@ workflowContextRouter.put("/v1/me/workflow-context", async (req, res) => {
   }
 });
 
-/**
- * Back-compat alias: maps workflow-context → legacy WorkflowPreferences shape
- * so existing web generate flow keeps working during UI migration.
- */
-workflowContextRouter.get("/v1/me/workflow-preferences", async (req, res) => {
+meWorkflowContextRouter.get("/workflow-preferences", async (req, res) => {
   try {
-    const userId = resolveUserId(req);
+    const userId = getAuth(req).internalUserId;
     const record = await getOrCreateWorkflowContext(userId);
     const legacy: WorkflowPreferencesRecord = {
       userId: record.userId,
@@ -69,8 +64,8 @@ workflowContextRouter.get("/v1/me/workflow-preferences", async (req, res) => {
   }
 });
 
-workflowContextRouter.put("/v1/me/workflow-preferences", async (req, res) => {
-  const userId = resolveUserId(req);
+meWorkflowContextRouter.put("/workflow-preferences", async (req, res) => {
+  const userId = getAuth(req).internalUserId;
   const body = req.body as {
     writingStyle?: string;
     weeklyCalendar?: string;
@@ -104,20 +99,12 @@ workflowContextRouter.put("/v1/me/workflow-preferences", async (req, res) => {
   }
 });
 
-/** Worker / internal: bundle shape for LangGraph loadContext. */
-workflowContextRouter.get("/internal/v1/workflow-context", async (req, res) => {
-  try {
-    const userId = resolveUserId(req);
-    const feedback =
-      typeof req.query.userFeedback === "string"
-        ? req.query.userFeedback
-        : undefined;
-    const record = await getOrCreateWorkflowContext(userId);
-    return res.json(
-      toWorkflowContextBundle(record, { userFeedback: feedback })
-    );
-  } catch (err) {
-    console.error("GET internal workflow-context failed", err);
-    return res.status(500).json({ error: "Failed to load workflow context bundle" });
-  }
+/** Authenticated profile stub until full profile routes ship. */
+meWorkflowContextRouter.get("/profile", async (req, res) => {
+  const auth = getAuth(req);
+  return res.json({
+    userId: auth.internalUserId,
+    clerkUserId: auth.clerkUserId,
+    tenantId: auth.tenantId
+  });
 });

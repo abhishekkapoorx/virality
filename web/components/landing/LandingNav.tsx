@@ -1,3 +1,5 @@
+import { LandingNavAuth } from "./LandingNavAuth";
+
 export function LandingNav() {
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200/80 bg-[#faf9f7]/80 backdrop-blur-md">
@@ -24,20 +26,7 @@ export function LandingNav() {
             How it works
           </a>
         </nav>
-        <div className="flex items-center gap-2">
-          <a
-            href="/workflow"
-            className="hidden rounded-2xl px-4 py-2 text-sm font-medium text-stone-600 transition hover:text-stone-900 sm:inline-block"
-          >
-            Workflow
-          </a>
-          <a
-            href="#waitlist"
-            className="rounded-2xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-stone-50 shadow-sm transition hover:bg-stone-800"
-          >
-            Join waitlist
-          </a>
-        </div>
+        <LandingNavAuth />
       </div>
     </header>
   );

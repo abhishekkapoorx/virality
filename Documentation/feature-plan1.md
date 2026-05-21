@@ -72,13 +72,13 @@ Requested change: prioritize **landing page + post generation workflow** before 
 
 ---
 
-## Phase 3 — Clerk (web identity → internal user)
+## Phase 3 — Clerk (web identity → internal user) — **in progress (MVP shipped)**
 
-8. **Clerk on Next.js** — `@clerk/nextjs`, env vars, `/sign-in`, `/sign-up`, `middleware.ts` protecting `/onboarding`, `/settings`, `/activity`.
-9. **Clerk → DB user** — Either **webhook** `POST /v1/webhooks/clerk` on API with signature verification, or **lazy create** on first authenticated API call; map Clerk `sub` → `User.clerkUserId` + tenant assignment rule (decide workspace-first vs prosumer once — ARCHITECTURE §12).
-10. **API JWT middleware** — Verify Clerk JWT on `/v1/me/*`; attach internal `userId` / `tenantId` to `req`.
+8. **Clerk on Next.js** — ✅ `@clerk/nextjs`, env vars, `/sign-in`, `/sign-up`, `middleware.ts` protecting `/workflow` (onboarding/settings/activity when added).
+9. **Clerk → DB user** — ✅ Webhook `POST /v1/webhooks/clerk` + lazy create on first `/v1/me/*` call; `User.clerkUserId`. Local webhooks: ngrok → API :4000 (`Documentation/clerk-local-dev.md`).
+10. **API JWT middleware** — ✅ `clerkAuthMiddleware` on `/v1/me/*`; dev fallback if `CLERK_SECRET_KEY` unset.
 
-*Exit:* signed-in user in Next.js hits one protected API route and resolves to a DB row.
+*Exit:* signed-in user in Next.js hits one protected API route and resolves to a DB row. **Done for `/workflow` + workflow-context CRUD.**
 
 ---
 

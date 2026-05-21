@@ -177,8 +177,8 @@ Background jobs (BullMQ / similar): `workflow.generate`, `workflow.deliver-slack
 
 - [ ] Register Slack Request URLs → `/v1/integrations/slack/events` and interactions URL → `/v1/integrations/slack/interactions`.
 - [ ] Register Slack OAuth redirect → `/v1/oauth/slack/callback`.
-- [ ] Register Clerk JWT issuer/JWKS in API middleware; map `sub` to `users.clerkUserId`.
-- [ ] Register Clerk webhook URL → `/v1/webhooks/clerk` (or Next handler) with signing secret.
-- [ ] Align Next.js `middleware.ts` matcher with §2.2 routes.
+- [x] Register Clerk JWT issuer/JWKS in API middleware; map `sub` to `users.clerkUserId`.
+- [x] Register Clerk webhook URL → `/v1/webhooks/clerk` with signing secret (local: ngrok → port 4000; see `Documentation/clerk-local-dev.md`).
+- [x] Align Next.js `middleware.ts` matcher with §2.2 routes (`/workflow` protected; landing + waitlist public).
 - [ ] Replace `/v1/inbound` stub with real Slack → workflow path.
 - [ ] Publish OpenAPI for `/v1/me/*` and Slack-facing contracts where stable.

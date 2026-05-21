@@ -1,17 +1,17 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
 import { CSSProperties, FormEvent, useEffect, useState } from "react";
 import {
-  DEMO_USER_ID,
   type GenerateDraftResponse,
   type UserWorkflowContext
 } from "@linkedin-agent/shared";
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const demoUserId =
-  process.env.NEXT_PUBLIC_DEMO_USER_ID?.trim() || DEMO_USER_ID;
+import { useAuthedApi } from "@/lib/useAuthedApi";
 
 export default function WorkflowPage() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const { fetchWithAuth } = useAuthedApi();
   const [configText, setConfigText] = useState("");
   const [styleText, setStyleText] = useState("");
   const [scheduleText, setScheduleText] = useState("");
@@ -21,24 +21,28 @@ export default function WorkflowPage() {
   const [updateRequest, setUpdateRequest] = useState("");
   const [message, setMessage] = useState("");
   const [draft, setDraft] = useState<GenerateDraftResponse | null>(null);
+  const [activeUserId, setActiveUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void loadContext();
-  }, []);
+    if (isLoaded && isSignedIn) {
+      void loadContext();
+    } else if (isLoaded && !isSignedIn) {
+      setLoading(false);
+    }
+  }, [isLoaded, isSignedIn]);
 
   async function loadContext() {
     setLoading(true);
     setMessage("Loading saved context…");
     try {
-      const res = await fetch(
-        `${apiBase}/v1/me/workflow-context?userId=${encodeURIComponent(demoUserId)}`
-      );
+      const res = await fetchWithAuth("/v1/me/workflow-context");
       if (!res.ok) {
         setMessage("Failed to load workflow context (is Postgres running?)");
         return;
       }
       const data = (await res.json()) as UserWorkflowContext;
+      setActiveUserId(data.userId);
       setConfigText(data.configText);
       setStyleText(data.styleText);
       setScheduleText(data.scheduleText);
@@ -54,11 +58,9 @@ export default function WorkflowPage() {
   async function saveContext(e: FormEvent) {
     e.preventDefault();
     setMessage("Saving to database…");
-    const res = await fetch(`${apiBase}/v1/me/workflow-context`, {
+    const res = await fetchWithAuth("/v1/me/workflow-context", {
       method: "PUT",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        userId: demoUserId,
         configText,
         styleText,
         scheduleText,
@@ -77,11 +79,9 @@ export default function WorkflowPage() {
 
   async function generateDraft() {
     setMessage("Generating draft…");
-    const res = await fetch(`${apiBase}/v1/me/drafts/generate`, {
+    const res = await fetchWithAuth("/v1/me/drafts/generate", {
       method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        userId: demoUserId,
         updateRequest: updateRequest.trim() || undefined
       })
     });
@@ -95,14 +95,14 @@ export default function WorkflowPage() {
   }
 
   async function saveRepeatFromSlack() {
+    if (!activeUserId) return;
     setMessage("Updating /set-repeat schedule…");
-    const res = await fetch(`${apiBase}/v1/integrations/slack/commands`, {
+    const res = await fetchWithAuth("/v1/integrations/slack/commands", {
       method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         command: "/set-repeat",
         text: cronExpression,
-        user_id: demoUserId
+        user_id: activeUserId
       })
     });
     const body = await res.json();
@@ -113,18 +113,40 @@ export default function WorkflowPage() {
     setMessage(`Slack repeat updated to: ${body.cronExpression}`);
   }
 
+  if (!isLoaded) {
+    return (
+      <main style={{ maxWidth: 960, margin: "0 auto", padding: "2rem 1.25rem" }}>
+        <p style={{ color: "#64748b" }}>Loading…</p>
+      </main>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <main style={{ maxWidth: 960, margin: "0 auto", padding: "2rem 1.25rem" }}>
+        <h1 style={{ marginBottom: "0.5rem" }}>Sign in required</h1>
+        <p style={{ color: "#64748b" }}>
+          <a href="/sign-in" style={{ color: "#2563eb", fontWeight: 600 }}>
+            Sign in
+          </a>{" "}
+          to configure your workflow context.
+        </p>
+      </main>
+    );
+  }
+
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "2rem 1.25rem" }}>
       <h1 style={{ marginBottom: "0.5rem" }}>Workflow context</h1>
-      <p style={{ color: "#cbd5e1", marginTop: 0 }}>
-        Per-user prompt context stored in Postgres (replaces the n8n Google Docs).
-        Auth will map sessions to user ids later; for now everything saves under a
-        fixed demo user.
+      <p style={{ color: "#64748b", marginTop: 0 }}>
+        Your writing style, calendar, and schedule—saved to your account.
       </p>
 
-      <p style={badge}>
-        Active user: <code>{demoUserId}</code> (constant until Clerk is wired)
-      </p>
+      {activeUserId ? (
+        <p style={badge}>
+          Signed in · workspace id <code>{activeUserId.slice(0, 12)}…</code>
+        </p>
+      ) : null}
 
       {loading ? (
         <p style={{ color: "#94a3b8" }}>Loading…</p>
@@ -245,10 +267,11 @@ const badge: CSSProperties = {
   display: "inline-block",
   padding: "0.35rem 0.65rem",
   borderRadius: "0.4rem",
-  background: "#1e293b",
-  border: "1px solid #334155",
+  background: "#f5f5f4",
+  border: "1px solid #e7e5e4",
   fontSize: "0.9rem",
-  marginBottom: "1rem"
+  marginBottom: "1rem",
+  color: "#44403c"
 };
 
 const fieldset: CSSProperties = {

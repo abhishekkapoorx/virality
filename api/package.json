@@ -16,6 +16,7 @@
     "prisma:migrate:dev": "prisma migrate dev"
   },
   "dependencies": {
+    "@clerk/backend": "^2.6.0",
     "@linkedin-agent/shared": "workspace:*",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
