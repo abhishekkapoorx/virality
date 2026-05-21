@@ -49,8 +49,7 @@ COPY --from=builder /app/api/dist ./api/dist
 COPY --from=builder /app/api/package.json ./api/package.json
 COPY --from=builder /app/api/prisma ./api/prisma
 
-# Generated Prisma client (runtime still uses `dependencies` @prisma/client from prod install)
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/api/src/generated ./api/src/generated
 
 USER apiuser
 WORKDIR /app/api
