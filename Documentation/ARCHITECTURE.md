@@ -1,14 +1,25 @@
 # LinkedIn Agent Architecture
 
-Last updated: 2026-05-21  
-Scope: MVP architecture (Slack first, DB-backed instruction profiles, cloud-hosted stack)
+Last updated: 2026-05-23  
+Scope: MVP architecture (**Telegram** first, DB-backed instruction profiles, cloud-hosted stack). Slack deferred — see [decisions/0004-telegram-over-slack-mvp-channel.md](./decisions/0004-telegram-over-slack-mvp-channel.md).
+
+### Implementation status (Telegram)
+
+| Component | Status |
+|-----------|--------|
+| Webhook ingress + message replies | Shipped — [feature-telegram-bot.md](./feature-telegram-bot.md) |
+| grammY bot + webhook (`api`, dependency `grammy`) | Shipped |
+| `TelegramAdapter` stub (`packages/shared`) | Shipped (for future worker outbound) |
+| Account link (`link_token`, `connectors`) | Not shipped |
+| Canonical events → workflow engine | Not shipped |
+| Worker delivery (`notifySlack` still legacy) | Not shipped |
 
 ---
 
 ## 1) Architecture goals
 
 - Keep one deterministic agent workflow across channels.
-- Ship fast with Slack-only connector for MVP.
+- Ship fast with Telegram-only connector for MVP.
 - Prioritize landing page plus post-generation workflow before deeper platform phases.
 - Keep compliance strong with human approval before publish.
 - Store user instruction profiles in database (no external document dependency for now).
@@ -21,7 +32,7 @@ Scope: MVP architecture (Slack first, DB-backed instruction profiles, cloud-host
 ```mermaid
 flowchart LR
   U[User]
-  S[Slack App]
+  T[Telegram Bot]
   W[Web App]
   A[API Gateway / Orchestration API]
   E[Workflow Engine]
@@ -31,10 +42,10 @@ flowchart LR
   Q[(Queue / Job Runner)]
   AU[(Audit/Event Store)]
 
-  U -->|submit/refine/approve| S
+  U -->|submit/refine/approve| T
   U -->|onboarding + settings| W
 
-  S --> A
+  T --> A
   W --> A
 
   A --> E
@@ -44,7 +55,7 @@ flowchart LR
   E --> Q
   Q --> E
   E --> AU
-  E --> S
+  E --> T
   A --> DB
 ```
 
@@ -52,9 +63,9 @@ flowchart LR
 
 ### Core components
 
-- **Web App**: onboarding, Slack connect, instruction profile CRUD, policy settings, history.
-- **Slack Adapter**: verifies Slack requests and maps interaction payloads to canonical events.
-- **Orchestration API**: auth (Slack-signed ingress vs Clerk-verified web requests), tenant routing, idempotency, request normalization.
+- **Web App**: onboarding, Telegram link, instruction profile CRUD, policy settings, history.
+- **Telegram Adapter**: verifies webhook secret and maps messages / callback queries to canonical events.
+- **Orchestration API**: auth (Telegram webhook secret vs Clerk-verified web requests), tenant routing, idempotency, request normalization.
 - **Workflow Engine**: state machine for intake -> draft -> refine -> approve/reject -> ready-to-publish.
 - **Scheduler**: per-user cron-triggered workflow starts.
 - **Policy Layer**: style checks, banned phrases, claim guardrails.
@@ -64,7 +75,7 @@ flowchart LR
 
 ### Authentication (web): Clerk
 
-The web app and browser-originated API calls use **[Clerk](https://clerk.com)** for identity and sessions. Slack connector traffic continues to use Slack signing secrets and Slack OAuth; that is separate from Clerk.
+The web app and browser-originated API calls use **[Clerk](https://clerk.com)** for identity and sessions. Telegram traffic uses the Bot API webhook secret (and optional per-update validation); linking a Telegram account to an internal user is initiated from the web via a short-lived `link_token` deep link. That is separate from Clerk.
 
 | Concern | Approach |
 | -------- | -------- |
@@ -72,7 +83,7 @@ The web app and browser-originated API calls use **[Clerk](https://clerk.com)** 
 | **Orchestration API (web)** | Validate **Clerk session JWTs** on `/v1/me/*` (and similar user-scoped routes): verify signature against Clerk JWKS, enforce issuer/audience, short lifetime. Accept `Authorization: Bearer <token>` from the web client or use Clerk’s recommended server-side session verification pattern for your deployment shape (e.g. Next.js calling API routes or Express with shared verification helper). |
 | **Identity mapping** | Map Clerk `sub` (user id) to an internal `User` row — persist `clerkUserId` (or equivalent) on `users` for stable joins with tenants and instruction profiles. |
 | **Directory sync** | Prefer **Clerk webhooks** (`user.created`, `user.updated`, `user.deleted`) to upsert internal users and handle email/metadata changes; alternatively lazy-create internal `User` on first successful JWT-verified request if webhook infra is deferred. |
-| **Connector OAuth** | **Slack OAuth** remains the path for installing the Slack app and storing workspace tokens in `connectors`; Clerk does not replace Slack’s OAuth for the bot/workspace link. |
+| **Telegram link** | Web issues `link_token` → user opens `t.me/<bot>?start=link_<token>` → webhook binds `telegram_user_id` to internal `User` / `connectors` row. Bot token stored server-side (env or `connectors`). |
 
 Security notes: never trust client-only claims without JWT verification; keep Clerk **publishable** key in the web app and **secret** keys / webhook signing secrets only on the server; rotate keys via Clerk dashboard if compromised.
 
@@ -83,7 +94,7 @@ Security notes: never trust client-only claims without JWT verification; keep Cl
 ```mermaid
 flowchart TD
   R[Requirements\n(PRD + constraints)] --> D[Design\n(architecture + state machine)]
-  D --> I[Implementation\n(Slack adapter + API + workflow + DB schema)]
+  D --> I[Implementation\n(Telegram adapter + API + workflow + DB schema)]
   I --> T[Testing\n(unit + integration + e2e + failure paths)]
   T --> DE[Deployment\n(staging -> production)]
   DE --> O[Operations\n(observability + incident playbooks)]
@@ -104,16 +115,16 @@ flowchart TD
 sequenceDiagram
   autonumber
   participant U as User
-  participant S as Slack
+  participant T as Telegram
   participant A as Orchestration API
   participant E as Workflow Engine
   participant DB as Postgres
   participant P as Policy Layer
   participant L as LLM
 
-  U->>S: Send raw post idea or requested draft updates
-  S->>A: Event callback / slash command (signed request)
-  A->>A: Verify signature + idempotency
+  U->>T: Send raw post idea or tap inline action
+  T->>A: Webhook update (signed secret)
+  A->>A: Verify secret + idempotency
   A->>E: Canonical InboundMessage
   E->>DB: Load writing style + weekly calendar + carousel style
   E->>P: Build guarded prompt context
@@ -122,9 +133,9 @@ sequenceDiagram
   P-->>E: Validated draft
   E->>E: Generate carousel artifact (placeholder/real)
   E->>DB: Persist draft + carousel + state + audit event
-  E-->>S: OutboundPayload (draft + carousel + actions)
+  E-->>T: OutboundPayload (draft + carousel + inline keyboard)
   E-->>U: Web payload for dashboard/history
-  S-->>U: Show draft with Approve/Refine/Reject
+  T-->>U: Show draft with Approve/Refine/Reject
 ```
 
 
@@ -166,22 +177,22 @@ stateDiagram-v2
 ## 6) Data flow (including failure paths)
 
 ```text
-INPUT (Slack signed requests / Web + Clerk JWT)
-  -> Signature or JWT Validation (Slack vs Clerk)
+INPUT (Telegram webhook / Web + Clerk JWT)
+  -> Secret or JWT Validation (Telegram vs Clerk)
   -> Tenant + Conversation Resolution
   -> Instruction Profile Snapshot Load (DB)
   -> Prompt Assembly + Policy Pre-Checks
   -> LLM Draft Generation
   -> Policy Post-Checks
   -> Persist Draft + State + Audit
-  -> Return Actions to Slack
+  -> Return Actions to Telegram
 
 Failure branches:
-- Invalid Slack signature or invalid/expired Clerk JWT -> 401 + security log (no workflow transition)
+- Invalid Telegram webhook secret or invalid/expired Clerk JWT -> 401 + security log (no workflow transition)
 - Duplicate event -> idempotent skip + info log
 - Missing instruction profile -> fallback to default profile version
 - LLM timeout -> retry once, then Failed state + user-visible message
-- Policy fail -> block Approve, return actionable reason in Slack
+- Policy fail -> block Approve, return actionable reason in Telegram
 ```
 
 ---
@@ -206,7 +217,7 @@ flowchart LR
 ### Rollback strategy
 
 - Disable new workflow features by feature flag.
-- Keep Slack ingress alive, but route new requests to safe fallback message when severe incidents happen.
+- Keep Telegram webhook alive, but route new requests to a safe fallback message when severe incidents happen.
 - Rollback app image + run DB-safe backward-compatible migrations only.
 
 ---
@@ -217,7 +228,7 @@ flowchart LR
 Core tables:
 - tenants
 - users (map to Clerk via stored Clerk user id on the user record)
-- connectors (slack metadata/tokens)
+- connectors (telegram user id, bot metadata/tokens)
 - conversations
 - instruction_profiles
 - instruction_profile_versions
@@ -243,8 +254,8 @@ Core tables:
 - `schedule_configs` stores:
   - `cronExpression` (Unix cron)
   - `enabled`
-  - `updatedVia` (`web` or `slack_command`)
-- Slack command `/set-repeat` updates `schedule_configs` through the same API contract as the web settings page.
+  - `updatedVia` (`web` or `telegram_command`)
+- Telegram command `/set_repeat` (when implemented) updates `schedule_configs` through the same API contract as the web settings page.
 
 ---
 
@@ -254,21 +265,21 @@ Public marketing copy for the scheduled path lives on the web landing page (`/#s
 
 ```text
 Manual trigger path:
-Web form or Slack message -> API draft generation endpoint
+Web form or Telegram message -> API draft generation endpoint
   -> Load per-user preferences
   -> LLM draft
   -> Carousel generation step
-  -> Return/persist for Slack + Web targets
+  -> Return/persist for Telegram + Web targets
 
 Scheduled trigger path:
 Cron scheduler tick
   -> Resolve users with enabled schedule_configs
   -> Trigger same draft generation pipeline
-  -> Deliver to Slack + Web
+  -> Deliver to Telegram + Web
 
-Slack scheduling command path:
-/set-repeat <cron expression>
-  -> Slack command endpoint
+Telegram scheduling command path (optional):
+/set_repeat <cron expression>
+  -> Telegram webhook handler (bot command)
   -> Validate expression + upsert schedule_configs
   -> Acknowledge updated cadence
 ```
@@ -279,12 +290,13 @@ Slack scheduling command path:
 
 ```text
 Current:
-  SlackAdapter -> CanonicalEvent -> WorkflowEngine
+  TelegramAdapter -> CanonicalEvent -> WorkflowEngine
 
 Future:
-  SlackAdapter   \
-  DiscordAdapter  -> CanonicalEvent -> WorkflowEngine
-  WhatsAppAdapter/
+  TelegramAdapter  \
+  SlackAdapter      -> CanonicalEvent -> WorkflowEngine
+  DiscordAdapter   /
+  WhatsAppAdapter  /
 ```
 
 Connector rule: adapters only translate transport and interaction semantics.  
@@ -294,7 +306,7 @@ They must not contain business workflow logic.
 
 ## 11) Non-functional architecture requirements
 
-- **Security**: signed Slack webhooks, **Clerk JWT validation** for web-originated API calls, encrypted tokens (Slack, DB), strict tenant scoping.
+- **Security**: Telegram webhook secret validation, **Clerk JWT validation** for web-originated API calls, encrypted bot tokens (DB/env), strict tenant scoping.
 - **Reliability**: idempotent event handling, retries with bounded backoff, dead-letter queue for failed jobs.
 - **Observability**: correlation id (`conversation_id`) across API, jobs, LLM calls, and audit events.
 - **Performance**: cache instruction profile snapshots; keep prompt size bounded.
@@ -303,18 +315,18 @@ They must not contain business workflow logic.
 
 ## 12) Possible tech stack (MVP)
 
-This stack is intentionally pragmatic: fast to ship, easy to operate, and aligned with Slack-first workflow + future adapter expansion.
+This stack is intentionally pragmatic: fast to ship, easy to operate, and aligned with Telegram-first workflow + future adapter expansion.
 
 - **Frontend (web app)**: Next.js (TypeScript), Tailwind CSS, shadcn/ui
 - **API / orchestration**: Express JS (TypeScript), Zod for schema validation, OpenAPI for contracts
 - **Workflow engine**: Temporal (preferred) or BullMQ-based deterministic state machine
-- **Slack integration**: Slack Bolt SDK + signed request verification middleware
+- **Telegram integration**: [grammY](https://grammy.dev) — `webhookCallback` for Express, `secretToken` for webhook auth, handler middleware for commands and callbacks
 - **LLM layer**: provider-agnostic client (OpenAI/Anthropic adapter pattern) with prompt/version registry
 - **Database**: PostgreSQL (Supabase or managed Postgres), Prisma ORM
 - **Queue / jobs**: Redis + BullMQ (if Temporal is not used for all async work)
 - **Cache**: Redis for instruction snapshot/cache and idempotency keys
 - **Storage / secrets**: cloud KMS + secret manager, object storage for optional artifacts
-- **Auth**: **Clerk** for web sign-in/sessions and JWT verification on user-scoped API routes; **Slack OAuth** only for Slack workspace/bot connector installation (tokens in `connectors`)
+- **Auth**: **Clerk** for web sign-in/sessions and JWT verification on user-scoped API routes; **Telegram** account binding via web-issued link token (bot token in `connectors` or deployment secret)
 - **Infra / hosting**: Vercel (web) + Fly.io/Render/AWS ECS (API/worker), Terraform for infra-as-code
 - **Observability**: OpenTelemetry + Sentry + structured logs (Datadog/Loki) + uptime checks
 - **CI/CD**: GitHub Actions (lint/test/build/deploy), staged rollouts with feature flags
@@ -327,7 +339,7 @@ This stack is intentionally pragmatic: fast to ship, easy to operate, and aligne
 - Express js + TypeScript
 - PostgreSQL + Prisma
 - Redis + BullMQ
-- Slack Bolt
+- grammY (`grammy`)
 - OpenAI/Anthropic adapter
 - Sentry + OpenTelemetry
 - GitHub Actions + Vercel + Fly.io

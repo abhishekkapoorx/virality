@@ -1,15 +1,18 @@
 # Planned routes
 
-Last updated: 2026-05-21  
-Source of truth for product architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)
+Last updated: 2026-05-23 (Telegram webhook implemented)  
+Source of truth for product architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)  
+Implementation notes: [feature-telegram-bot.md](./feature-telegram-bot.md)
 
-This document lists **planned** HTTP routes for the Express orchestration API, the Next.js web app (App Router), Slack ingress, and Clerk-adjacent endpoints. Paths are stable targets for implementation; naming may shift slightly during build (keep OpenAPI in sync).
+This document lists **planned** HTTP routes for the Express orchestration API, the Next.js web app (App Router), Telegram webhook ingress, and Clerk-adjacent endpoints. Paths are stable targets for implementation; naming may shift slightly during build (keep OpenAPI in sync).
+
+> **Channel pivot (2026-05-23):** Slack routes below are **deprecated for MVP**; implement Telegram paths instead. See [decisions/0004-telegram-over-slack-mvp-channel.md](./decisions/0004-telegram-over-slack-mvp-channel.md).
 
 **Auth boundaries**
 
 - **Web UI + user-scoped JSON API**: Clerk session / JWT verification (`/v1/me/*`).
-- **Slack Events & Interactions**: Slack signing secret (not Clerk).
-- **Slack OAuth (connector install)**: OAuth callback is server-side; user may already be signed into Clerk in the browser before starting install.
+- **Telegram webhook**: Shared secret (header or path token), not Clerk.
+- **Telegram account link**: Clerk-signed user on web issues `link_token`; bot `/start link_<token>` completes binding.
 
 ---
 
@@ -24,24 +27,35 @@ Base URL example: `https://api.example.com`. Version prefix: **`/v1`**.
 | GET | `/health` | None | Liveness |
 | GET | `/health/ready` | None | Readiness (DB + Redis checks when wired) |
 
-### 1.2 Slack ingress (adapter)
+### 1.2 Telegram ingress (adapter)
 
-Raw body required for signature verification on POST handlers.
+| Method | Path | Auth | Status | Purpose |
+|--------|------|------|--------|---------|
+| POST | `/v1/integrations/telegram/webhook` | Optional `X-Telegram-Bot-Api-Secret-Token` | **Shipped** | All Bot API updates: messages, `callback_query`, bot commands |
 
-| Method | Path | Auth | Purpose |
-|--------|------|------|---------|
-| POST | `/v1/integrations/slack/events` | Slack signing secret | Events API (URL verification, messages, etc.) |
-| POST | `/v1/integrations/slack/interactions` | Slack signing secret | Block actions: Approve / Refine / Reject, shortcuts |
-| POST | `/v1/integrations/slack/commands` | Slack signing secret | Slash commands (includes `/set-repeat <cron>`) |
+Handler: grammY `webhookCallback` in `api/src/routes/telegramWebhook.ts` → `api/src/telegram/handlers.ts`.  
+Idempotency via grammY middleware (in-memory today). Canonical `InboundMessage` mapping — **not yet**.
 
-### 1.3 Slack OAuth (connector)
+### 1.3 Telegram account link (connector)
 
-| Method | Path | Auth | Purpose |
-|--------|------|------|---------|
-| GET | `/v1/oauth/slack/install` | Browser session optional | Start Slack OAuth install flow |
-| GET | `/v1/oauth/slack/callback` | OAuth `state` validation | OAuth redirect; persist tokens into `connectors` |
+| Method | Path | Auth | Status | Purpose |
+|--------|------|------|--------|---------|
+| POST | `/v1/me/integrations/telegram/link-token` | Clerk JWT | Planned | Issue short-lived token for `t.me/<bot>?start=link_<token>` |
+| GET | `/v1/me/integrations/telegram` | Clerk JWT | Planned | Link status (`telegram_user_id`, connected at) |
+| DELETE | `/v1/me/integrations/telegram` | Clerk JWT | Planned | Unlink Telegram from internal user |
 
-Exact callback URL must match Slack app configuration.
+Webhook `/start link_*` — **placeholder reply only** until link-token API + DB binding ship.
+
+### 1.3a Deprecated — Slack (not MVP)
+
+Do not implement for new work unless explicitly reviving Slack post-pilot.
+
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/v1/integrations/slack/events` | Was Events API |
+| POST | `/v1/integrations/slack/interactions` | Was Block Kit |
+| POST | `/v1/integrations/slack/commands` | Stub may exist in repo |
+| GET | `/v1/oauth/slack/*` | Was workspace OAuth |
 
 ### 1.4 Clerk webhooks (directory sync)
 
@@ -102,7 +116,7 @@ Pre-auth: `userId` defaults to `DEMO_USER_ID` (`demo-user`). Post-auth: Clerk `s
 
 #### Workflow actions from web (optional MVP)
 
-Same domain events as Slack buttons; omit from MVP if Slack-only.
+Same domain events as Telegram inline keyboard; web actions optional if bot-only MVP.
 
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -126,7 +140,7 @@ Prefer **BullMQ** consumers in `worker/` without public HTTP.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/v1/inbound` | Temporary stub; replace with Slack-driven canonical inbound |
+| POST | `/v1/inbound` | Temporary stub; replace with Telegram-driven canonical inbound |
 
 ---
 
@@ -147,8 +161,8 @@ Protect app routes with **Clerk middleware** except marketing/legal/sign-in as c
 
 | Route | Purpose |
 |-------|---------|
-| `/onboarding` | Tenant context, Slack connect, default instruction profile |
-| `/settings/slack` | Connector status, reinstall, test |
+| `/onboarding` | Tenant context, Telegram link, default instruction profile |
+| `/settings/telegram` | Link status, connect via deep link, disconnect |
 | `/settings/profile` | Instruction profile CRUD (calls `/v1/me/profile`) |
 | `/settings/policy` | Policy / guardrails (calls `/v1/me/policy`) |
 | `/activity` | Conversation list (calls `/v1/me/conversations`) |
@@ -169,16 +183,16 @@ Pick **either** Express **or** Next route handlers for Clerk webhooks to avoid d
 
 ## 3) Worker / queue (no HTTP)
 
-Background jobs (BullMQ / similar): `workflow.generate`, `workflow.deliver-slack`, `audit.write`, DLQ processing. See ARCHITECTURE.md §11.
+Background jobs (BullMQ / similar): `workflow.generate`, `workflow.deliver-telegram`, `audit.write`, DLQ processing. See ARCHITECTURE.md §11.
 
 ---
 
 ## 4) Implementation checklist
 
-- [ ] Register Slack Request URLs → `/v1/integrations/slack/events` and interactions URL → `/v1/integrations/slack/interactions`.
-- [ ] Register Slack OAuth redirect → `/v1/oauth/slack/callback`.
+- [x] Register Telegram webhook → `POST /v1/integrations/telegram/webhook` (use `pnpm --filter @linkedin-agent/api telegram:set-webhook`; see [feature-telegram-bot.md](./feature-telegram-bot.md)).
+- [ ] Implement link-token flow → `POST /v1/me/integrations/telegram/link-token` + `/start link_*` handler (DB bind).
 - [x] Register Clerk JWT issuer/JWKS in API middleware; map `sub` to `users.clerkUserId`.
 - [x] Register Clerk webhook URL → `/v1/webhooks/clerk` with signing secret (local: ngrok → port 4000; see `Documentation/clerk-local-dev.md`).
 - [x] Align Next.js `middleware.ts` matcher with §2.2 routes (`/workflow` protected; landing + waitlist public).
-- [ ] Replace `/v1/inbound` stub with real Slack → workflow path.
-- [ ] Publish OpenAPI for `/v1/me/*` and Slack-facing contracts where stable.
+- [ ] Replace `/v1/inbound` stub with real Telegram → workflow path.
+- [ ] Publish OpenAPI for `/v1/me/*` and Telegram webhook contracts where stable.

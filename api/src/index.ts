@@ -9,6 +9,7 @@ import {
 
 import { clerkAuthMiddleware } from "./middleware/clerkAuth.js";
 import { clerkWebhookRouter } from "./routes/clerkWebhook.js";
+import { telegramWebhookRouter } from "./routes/telegramWebhook.js";
 import { internalWorkflowContextRouter } from "./routes/internalWorkflowContext.js";
 import { meWorkflowContextRouter } from "./routes/meWorkflowContext.js";
 import { resolveUserId } from "./lib/resolveUserId.js";
@@ -35,7 +36,8 @@ app.get("/health", (_req, res) => {
     service: "api",
     status: "ok",
     timestamp: new Date().toISOString(),
-    clerk: Boolean(process.env.CLERK_SECRET_KEY?.trim())
+    clerk: Boolean(process.env.CLERK_SECRET_KEY?.trim()),
+    telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN?.trim())
   });
 });
 
@@ -67,6 +69,7 @@ app.get("/health/ready", async (_req, res) => {
 });
 
 app.use("/internal/v1", internalWorkflowContextRouter);
+app.use("/v1/integrations/telegram", telegramWebhookRouter);
 
 const meRouter = express.Router();
 meRouter.use(clerkAuthMiddleware);
@@ -201,6 +204,11 @@ app.listen(port, () => {
   if (!process.env.CLERK_SECRET_KEY?.trim()) {
     console.warn(
       "CLERK_SECRET_KEY unset — /v1/me/* uses demo user fallback (see api/.env.example)"
+    );
+  }
+  if (!process.env.TELEGRAM_BOT_TOKEN?.trim()) {
+    console.warn(
+      "TELEGRAM_BOT_TOKEN unset — Telegram webhook will return 503 (see api/.env.example)"
     );
   }
 });

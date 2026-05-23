@@ -1,6 +1,6 @@
 # Landing page (`/`)
 
-Last updated: 2026-05-21  
+Last updated: 2026-05-23  
 Implementation: `web/app/page.tsx`, `web/components/landing/*`
 
 Cross-links: [feature-plan1.md](./feature-plan1.md) (priority pivot), [ARCHITECTURE.md](./ARCHITECTURE.md) §9 (trigger paths), [planned-routes.md](./planned-routes.md) §2.1.
@@ -17,11 +17,11 @@ Public marketing shell with waitlist CTA. Product copy aligns with [PRD.md](./PR
 
 | Section | Anchor | Content |
 |---------|--------|---------|
-| Hero | — | Value prop, waitlist + “Watch the flow” CTAs, animated Slack preview |
+| Hero | — | Value prop, waitlist + “Watch the flow” CTAs, animated **Telegram** preview (copy still says Slack in code until landing refresh) |
 | Interactive flow | `#flow` | Clickable/auto-advancing demo of draft loop (input → draft → refine → approve) |
-| Core features | `#features` | Six bento cards (Slack loop, on-brand gen, policy, manual publish, carousel, delivery) |
+| Core features | `#features` | Six bento cards (Telegram loop, on-brand gen, policy, manual publish, carousel, delivery) |
 | **Cron scheduling** | `#schedule` | **Dedicated highlight** for per-user cron (see below) |
-| How it works | `#how-it-works` | Slack vs web roles; summary pills |
+| How it works | `#how-it-works` | Telegram vs web roles; summary pills |
 | Waitlist | `#waitlist` | Email capture via `POST /api/waitlist` |
 
 Nav: Flow · Features · **Scheduling** · How it works · Join waitlist.
@@ -30,13 +30,13 @@ Nav: Flow · Features · **Scheduling** · How it works · Join waitlist.
 
 ## Scheduling section (`#schedule`)
 
-Engineering detail: feature-plan1 §3 and ARCHITECTURE §9 (`cronExpression`, `/set-repeat`, worker tick). **The landing page does not show APIs, cron syntax, or internal paths**—only user outcomes.
+Engineering detail: feature-plan1 §3 and ARCHITECTURE §9 (`cronExpression`, `/set_repeat` or web-only schedule, worker tick). **The landing page does not show APIs, cron syntax, or internal paths**—only user outcomes.
 
 ### Copy principles (public page)
 
 - Focus on goals: consistency on LinkedIn, drafts ready to review, user stays in control.
 - Presets in plain language (e.g. “Every Monday morning”), not Unix cron strings.
-- Three outcome cards (consistency, set from app or Slack, approve before publish)—no endpoint names.
+- Three outcome cards (consistency, set from app or Telegram, approve before publish)—no endpoint names.
 
 ### Landing UX
 

@@ -180,6 +180,38 @@ services:
       api:
         condition: service_started
 
+  # One-shot registrar: register Telegram webhook once ngrok + api are available.
+  telegram-setup:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+      target: development
+    container_name: linkedin-agent-telegram-setup-dev
+    env_file:
+      - ./api/.env
+    environment:
+      NODE_ENV: development
+      PORT: ${API_PORT:-4000}
+      WEBHOOK_BASE_URL: ${WEBHOOK_BASE_URL}
+    depends_on:
+      ngrok:
+        condition: service_started
+      api:
+        condition: service_started
+    # Run the registration script and exit. Retry until success.
+    command:
+      - sh
+      - -c
+      - |
+        echo "Waiting a few seconds for services to settle...";
+        sleep 5;
+        until pnpm --filter @linkedin-agent/api run telegram:set-webhook; do
+          echo "setWebhook failed — retrying in 5s";
+          sleep 5;
+        done;
+        echo "Telegram webhook registration complete.";
+    restart: "no"
+
 volumes:
   postgres_data_dev:
   redis_data_dev:

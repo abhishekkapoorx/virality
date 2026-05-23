@@ -48,3 +48,11 @@ Override the API URL baked into the **production** Next.js image by setting `NEX
 - API health endpoint: `http://localhost:4000/health`
 - Web app: `http://localhost:3000`
 - CI workflow runs lint + typecheck + test on pushes/PRs: `.github/workflows/ci.yml`
+
+## Telegram bot (MVP channel)
+
+Product docs: [Documentation/feature-telegram-bot.md](Documentation/feature-telegram-bot.md).
+
+1. Set `TELEGRAM_BOT_TOKEN` (and optionally `TELEGRAM_WEBHOOK_SECRET`) in `api/.env`.
+2. Run API + expose port 4000 over HTTPS (e.g. `pnpm ngrok:webhook`).
+3. Register webhook: `WEBHOOK_BASE_URL=https://your-host pnpm --filter @linkedin-agent/api telegram:set-webhook`
