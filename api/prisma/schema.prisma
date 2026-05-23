@@ -15,12 +15,15 @@ model Tenant {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  clerkUserId String?  @unique
-  email       String   @unique
-  tenantId    String
-  createdAt   DateTime @default(now())
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                String               @id @default(cuid())
+  clerkUserId       String?              @unique
+  email             String               @unique
+  tenantId          String
+  telegramUserId    String?              @unique
+  telegramLinkedAt  DateTime?
+  createdAt         DateTime             @default(now())
+  tenant            Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  telegramLinkTokens TelegramLinkToken[]
 }
 
 /// Replaces n8n Google Docs (LinkedIn_Config, Style_Guide, Weekly_Post_Schedule, Content_Hook_System).
@@ -35,4 +38,16 @@ model UserWorkflowContext {
   cronExpression         String   @default("0 9 * * 1")
   updatedAt              DateTime @updatedAt
   createdAt              DateTime @default(now())
+}
+
+model TelegramLinkToken {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  userId     String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

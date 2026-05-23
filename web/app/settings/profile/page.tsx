@@ -8,6 +8,7 @@ export default function ProfileSettingsPage() {
       </p>
       <p>
         Open <a href="/workflow">/workflow</a> to edit these values and test generation.
+        Use <a href="/settings/telegram">/settings/telegram</a> to connect Telegram.
       </p>
     </main>
   );

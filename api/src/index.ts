@@ -9,6 +9,7 @@ import {
 
 import { clerkAuthMiddleware } from "./middleware/clerkAuth.js";
 import { clerkWebhookRouter } from "./routes/clerkWebhook.js";
+import { meTelegramRouter } from "./routes/meTelegram.js";
 import { telegramWebhookRouter } from "./routes/telegramWebhook.js";
 import { internalWorkflowContextRouter } from "./routes/internalWorkflowContext.js";
 import { meWorkflowContextRouter } from "./routes/meWorkflowContext.js";
@@ -74,6 +75,7 @@ app.use("/v1/integrations/telegram", telegramWebhookRouter);
 const meRouter = express.Router();
 meRouter.use(clerkAuthMiddleware);
 meRouter.use(meWorkflowContextRouter);
+meRouter.use(meTelegramRouter);
 app.use("/v1/me", meRouter);
 
 const generateDraftSchema = z.object({

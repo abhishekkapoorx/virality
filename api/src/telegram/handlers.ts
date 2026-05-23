@@ -1,5 +1,7 @@
 import { Bot, InlineKeyboard, type Context } from "grammy";
 
+import { redeemTelegramLinkToken } from "../services/telegramLinkService.js";
+
 const WELCOME_TEXT = [
   "Hi — I'm LinkedIn Agent.",
   "",
@@ -13,7 +15,7 @@ const HELP_TEXT = [
   "Send any message with your post idea.",
   "",
   "Later you'll get drafts here with Approve / Refine / Reject buttons.",
-  "Account linking from the web app is coming soon."
+  "Link your account from the web app to connect this chat to your profile."
 ].join("\n");
 
 const draftActionKeyboard = new InlineKeyboard()
@@ -32,8 +34,47 @@ async function onStart(ctx: Context): Promise<void> {
     ctx.message?.text?.replace(/^\/start(?:@\S+)?\s*/i, "").trim() ?? "";
   const linkToken = parseLinkTokenFromStart(args);
   if (linkToken) {
+    const telegramUserId = ctx.from?.id;
+    if (!telegramUserId) {
+      await ctx.reply("I could not read your Telegram user id. Please try again.");
+      return;
+    }
+
+    const result = await redeemTelegramLinkToken({
+      token: linkToken,
+      telegramUserId: String(telegramUserId)
+    });
+
+    if (result.status === "linked") {
+      await ctx.reply(
+        "Telegram is now connected to your account. Send a draft idea anytime and I’ll use your saved workflow context."
+      );
+      return;
+    }
+
+    if (result.status === "already-linked") {
+      await ctx.reply(
+        "This Telegram account is already linked to your profile. Send a draft idea anytime."
+      );
+      return;
+    }
+
+    if (result.status === "expired") {
+      await ctx.reply(
+        "That link expired. Go back to the web app and generate a fresh Telegram connect link."
+      );
+      return;
+    }
+
+    if (result.status === "conflict") {
+      await ctx.reply(
+        "That Telegram account is already linked to another user. If this is a mistake, unlink it from the web app first."
+      );
+      return;
+    }
+
     await ctx.reply(
-      "Thanks for opening the link. Account binding will connect this chat to your profile — not enabled yet.\n\nYou can still send a post idea as plain text."
+      "That link is invalid. Go back to the web app and generate a fresh Telegram connect link."
     );
     return;
   }
