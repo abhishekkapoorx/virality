@@ -22,7 +22,7 @@ export function LandingPage() {
                   For engineering leaders who publish on LinkedIn
                 </p>
                 <h1 className="mt-6 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-stone-900 sm:text-5xl lg:text-[3.35rem]">
-                  LinkedIn drafts that sound like you—not like a template.
+                  LinkedIn posts that sound like you—not like a template.
                 </h1>
                 <p className="mt-6 max-w-xl text-lg leading-relaxed text-stone-600">
                   Rough ideas in Slack. On-brand drafts back in thread. You
