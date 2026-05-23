@@ -14,14 +14,9 @@ export function LandingNavAuth() {
             Sign in
           </button>
         </SignInButton>
+        {/* Sign up removed: only Sign in button is shown to signed-out users */}
       </SignedOut>
       <SignedIn>
-        <a
-          href="/workflow"
-          className="hidden rounded-2xl px-4 py-2 text-sm font-medium text-stone-600 transition hover:text-stone-900 sm:inline-block"
-        >
-          Workflow
-        </a>
         <UserButton afterSignOutUrl="/" />
       </SignedIn>
       <a

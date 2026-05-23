@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -72,13 +73,17 @@ export function WaitlistSection() {
             onChange={(e) => setEmail(e.target.value)}
             className="min-w-0 flex-1 rounded-2xl border border-stone-700 bg-stone-800 px-4 py-3.5 text-stone-50 placeholder:text-stone-500 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-600/40 disabled:opacity-60"
           />
-          <button
+          <Button
             type="submit"
             disabled={status === "loading" || status === "success"}
-            className="rounded-2xl bg-[#e8d5c4] px-6 py-3.5 text-sm font-semibold text-stone-900 transition hover:bg-[#f0e0d2] disabled:cursor-not-allowed disabled:opacity-70"
+            className={`rounded-2xl px-6 py-3.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
+              status === "loading" || status === "success"
+                ? "opacity-70"
+                : "bg-[var(--color-accent-1)] text-[var(--color-strong-border)] hover:bg-[var(--color-accent-1)]/90"
+            }`}
           >
             {status === "loading" ? "Joining…" : status === "success" ? "Joined" : "Request access"}
-          </button>
+          </Button>
         </form>
 
         {message ? (

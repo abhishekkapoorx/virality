@@ -8,6 +8,9 @@ import {
 } from "@linkedin-agent/shared";
 
 import { useAuthedApi } from "@/lib/useAuthedApi";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card } from "@/components/ui/Card";
 
 export default function WorkflowPage() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -116,7 +119,7 @@ export default function WorkflowPage() {
   if (!isLoaded) {
     return (
       <main style={{ maxWidth: 960, margin: "0 auto", padding: "2rem 1.25rem" }}>
-        <p style={{ color: "#64748b" }}>Loading…</p>
+        <p style={{ color: "var(--color-muted-alt)" }}>Loading…</p>
       </main>
     );
   }
@@ -125,8 +128,8 @@ export default function WorkflowPage() {
     return (
       <main style={{ maxWidth: 960, margin: "0 auto", padding: "2rem 1.25rem" }}>
         <h1 style={{ marginBottom: "0.5rem" }}>Sign in required</h1>
-        <p style={{ color: "#64748b" }}>
-          <a href="/sign-in" style={{ color: "#2563eb", fontWeight: 600 }}>
+        <p style={{ color: "var(--color-muted-alt)" }}>
+          <a href="/sign-in" style={{ color: "var(--color-primary)", fontWeight: 600 }}>
             Sign in
           </a>{" "}
           to configure your workflow context.
@@ -138,7 +141,7 @@ export default function WorkflowPage() {
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "2rem 1.25rem" }}>
       <h1 style={{ marginBottom: "0.5rem" }}>Workflow context</h1>
-      <p style={{ color: "#64748b", marginTop: 0 }}>
+      <p style={{ color: "var(--color-muted-alt)", marginTop: 0 }}>
         Your writing style, calendar, and schedule—saved to your account.
       </p>
 
@@ -149,7 +152,7 @@ export default function WorkflowPage() {
       ) : null}
 
       {loading ? (
-        <p style={{ color: "#94a3b8" }}>Loading…</p>
+        <p style={{ color: "var(--color-muted)" }}>Loading…</p>
       ) : (
         <form onSubmit={saveContext} style={{ display: "grid", gap: "1rem" }}>
           <fieldset style={fieldset}>
@@ -157,21 +160,13 @@ export default function WorkflowPage() {
             <p style={hint}>
               Formerly the LinkedIn_Config Google Doc — hashtags, audience, brand rules.
             </p>
-            <textarea
-              value={configText}
-              onChange={(e) => setConfigText(e.target.value)}
-              style={textareaLarge}
-            />
+            <Input textarea value={configText} onChange={(e: any) => setConfigText(e.target.value)} />
           </fieldset>
 
           <fieldset style={fieldset}>
             <legend style={legend}>Style guide</legend>
             <p style={hint}>Formerly Style_Guide — voice, BUT→THEREFORE, sentence rhythm.</p>
-            <textarea
-              value={styleText}
-              onChange={(e) => setStyleText(e.target.value)}
-              style={textareaLarge}
-            />
+            <Input textarea value={styleText} onChange={(e: any) => setStyleText(e.target.value)} />
           </fieldset>
 
           <fieldset style={fieldset}>
@@ -179,11 +174,7 @@ export default function WorkflowPage() {
             <p style={hint}>
               Formerly Weekly_Post_Schedule — which post type runs on each weekday.
             </p>
-            <textarea
-              value={scheduleText}
-              onChange={(e) => setScheduleText(e.target.value)}
-              style={textareaLarge}
-            />
+            <Input textarea value={scheduleText} onChange={(e: any) => setScheduleText(e.target.value)} />
           </fieldset>
 
           <fieldset style={fieldset}>
@@ -191,40 +182,26 @@ export default function WorkflowPage() {
             <p style={hint}>
               Formerly Content_Hook_System — hook categories and when to use them.
             </p>
-            <textarea
-              value={hookSystemText}
-              onChange={(e) => setHookSystemText(e.target.value)}
-              style={textareaLarge}
-            />
+            <Input textarea value={hookSystemText} onChange={(e: any) => setHookSystemText(e.target.value)} />
           </fieldset>
 
           <fieldset style={fieldset}>
             <legend style={legend}>Carousel & schedule</legend>
             <label>
               Carousel design language
-              <textarea
-                value={carouselDesignLanguage}
-                onChange={(e) => setCarouselDesignLanguage(e.target.value)}
-                style={textareaStyle}
-              />
+              <Input textarea value={carouselDesignLanguage} onChange={(e: any) => setCarouselDesignLanguage(e.target.value)} />
             </label>
             <label>
               Cron expression
-              <input
-                value={cronExpression}
-                onChange={(e) => setCronExpression(e.target.value)}
-                style={inputStyle}
-              />
+              <Input value={cronExpression} onChange={(e: any) => setCronExpression(e.target.value)} />
             </label>
           </fieldset>
 
           <div style={buttonRow}>
-            <button type="submit" style={primaryBtn}>
-              Save to Postgres
-            </button>
-            <button type="button" style={secondaryBtn} onClick={saveRepeatFromSlack}>
+            <Button type="submit">Save to Postgres</Button>
+            <Button variant="secondary" type="button" onClick={saveRepeatFromSlack}>
               Simulate /set-repeat
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -233,19 +210,14 @@ export default function WorkflowPage() {
         <h2 style={{ fontSize: "1.15rem" }}>Test generation</h2>
         <label>
           Update request (optional — passed as user feedback to the graph)
-          <textarea
-            value={updateRequest}
-            onChange={(e) => setUpdateRequest(e.target.value)}
-            style={textareaStyle}
-            placeholder="Example: make the opening hook stronger and shorter."
-          />
+          <Input textarea value={updateRequest} onChange={(e: any) => setUpdateRequest(e.target.value)} placeholder="Example: make the opening hook stronger and shorter." />
         </label>
-        <button type="button" style={primaryBtn} onClick={generateDraft}>
+        <Button type="button" onClick={generateDraft}>
           Generate draft (API stub)
-        </button>
+        </Button>
       </section>
 
-      {message && <p style={{ marginTop: "1rem", color: "#93c5fd" }}>{message}</p>}
+      {message && <p style={{ marginTop: "1rem", color: "var(--color-primary)" }}>{message}</p>}
 
       {draft && (
         <section style={card}>
@@ -267,15 +239,15 @@ const badge: CSSProperties = {
   display: "inline-block",
   padding: "0.35rem 0.65rem",
   borderRadius: "0.4rem",
-  background: "#f5f5f4",
-  border: "1px solid #e7e5e4",
+  background: "var(--color-surface-soft)",
+  border: "1px solid var(--color-soft-border)",
   fontSize: "0.9rem",
   marginBottom: "1rem",
-  color: "#44403c"
+  color: "var(--color-ink)"
 };
 
 const fieldset: CSSProperties = {
-  border: "1px solid #334155",
+  border: "1px solid var(--color-strong-border)",
   borderRadius: "0.65rem",
   padding: "1rem",
   margin: 0
@@ -289,7 +261,7 @@ const legend: CSSProperties = {
 const hint: CSSProperties = {
   margin: "0.25rem 0 0.75rem",
   fontSize: "0.85rem",
-  color: "#94a3b8"
+  color: "var(--color-muted)"
 };
 
 const buttonRow: CSSProperties = {
@@ -303,9 +275,9 @@ const inputStyle: CSSProperties = {
   marginTop: "0.35rem",
   padding: "0.6rem",
   borderRadius: "0.5rem",
-  border: "1px solid #334155",
-  background: "#0f172a",
-  color: "#f8fafc"
+  border: "1px solid var(--color-strong-border)",
+  background: "var(--color-dark-surface)",
+  color: "var(--color-dark-text-on-surface)"
 };
 
 const textareaStyle: CSSProperties = {
@@ -320,8 +292,8 @@ const textareaLarge: CSSProperties = {
 };
 
 const primaryBtn: CSSProperties = {
-  background: "#2563eb",
-  color: "white",
+  background: "var(--color-primary)",
+  color: "var(--color-surface)",
   border: 0,
   borderRadius: "0.55rem",
   padding: "0.65rem 1rem",
@@ -330,9 +302,9 @@ const primaryBtn: CSSProperties = {
 };
 
 const secondaryBtn: CSSProperties = {
-  background: "#1e293b",
-  color: "#e2e8f0",
-  border: "1px solid #334155",
+  background: "var(--color-dark-surface)",
+  color: "var(--color-dark-text-on-surface)",
+  border: "1px solid var(--color-strong-border)",
   borderRadius: "0.55rem",
   padding: "0.65rem 1rem",
   cursor: "pointer",
@@ -341,8 +313,9 @@ const secondaryBtn: CSSProperties = {
 
 const card: CSSProperties = {
   marginTop: "1.5rem",
-  border: "1px solid #334155",
+  border: "1px solid var(--color-strong-border)",
   borderRadius: "0.75rem",
   padding: "1rem",
-  background: "#0f172a"
+  background: "var(--color-dark-surface)",
+  color: "var(--color-dark-text-on-surface)"
 };
