@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@clerk/backend": "^2.6.0",
+    "@langchain/groq": "^1.2.1",
     "@linkedin-agent/shared": "workspace:*",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",

@@ -3,6 +3,8 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 import type { ReactNode } from "react";
+import { SiteFooter } from "@/components/site/SiteFooter";
+import { SiteHeader } from "@/components/site/SiteHeader";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -26,7 +28,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <ClerkProvider>
       <html lang="en" className={`${dmSans.variable} ${fraunces.variable}`}>
-        <body className="font-sans antialiased">{children}</body>
+        <body className="font-sans antialiased bg-[#faf9f7] text-stone-900">
+          <div className="flex min-h-screen flex-col">
+            <SiteHeader />
+            <div className="flex-1">{children}</div>
+            <SiteFooter />
+          </div>
+        </body>
       </html>
     </ClerkProvider>
   );

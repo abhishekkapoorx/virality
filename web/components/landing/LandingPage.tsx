@@ -1,19 +1,14 @@
 import { BentoFeatures } from "./BentoFeatures";
 import { FlowExperience } from "./FlowExperience";
 import { HeroPreview } from "./HeroPreview";
-import { LandingNav } from "./LandingNav";
 import { NoiseBackground } from "./NoiseBackground";
 import { ScheduleSection } from "./ScheduleSection";
 import { WaitlistSection } from "./WaitlistSection";
-import dynamic from "next/dynamic";
-
-const FooterAuth = dynamic(() => import("./FooterAuth").then((m) => m.FooterAuth), { ssr: false });
 
 export function LandingPage() {
   return (
     <div className="relative min-h-screen bg-[#faf9f7] text-stone-900">
       <NoiseBackground />
-      <LandingNav />
 
       <main>
         <section className="px-5 pb-16 pt-14 sm:px-8 sm:pb-20 sm:pt-20">
@@ -91,22 +86,7 @@ export function LandingPage() {
           </div>
         </section>
       </main>
-
       <WaitlistSection />
-
-      <footer className="border-t border-stone-800 bg-stone-900 px-5 py-8 text-center text-xs text-stone-500 sm:px-8">
-        <div className="mx-auto max-w-6xl flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-          <div>LinkedIn Agent · Human-in-the-loop content workflow</div>
-          <nav className="flex gap-4 text-xs items-center">
-            <a href="/workflow" className="transition hover:text-stone-300 no-underline">Workflow</a>
-            <a href="/settings/profile" className="transition hover:text-stone-300 no-underline">Settings</a>
-            <a href="/settings/slack" className="transition hover:text-stone-300 no-underline">Slack</a>
-            <div className="ml-2">
-              <FooterAuth />
-            </div>
-          </nav>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -11,7 +11,8 @@ export function Button({ variant = "primary", className = "", children, ...rest 
   const variants: Record<string, string> = {
     primary: "bg-[var(--color-primary)] text-[var(--color-surface)] shadow-sm hover:shadow-md",
     secondary: "bg-[var(--color-dark-surface)] text-[var(--color-dark-text-on-surface)] border-[1px] border-[var(--color-strong-border)] hover:opacity-95",
-    ghost: "bg-transparent text-[var(--color-primary)]"
+    ghost:
+      "bg-[var(--color-surface-soft)] text-[var(--color-ink)] border-[1px] border-[var(--color-soft-border)] hover:bg-[var(--color-surface)]"
   };
   return (
     <button className={`${base} ${variants[variant]} ${className}`} {...rest}>

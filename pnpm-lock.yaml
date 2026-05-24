@@ -23,6 +23,9 @@ importers:
       '@clerk/backend':
         specifier: ^2.6.0
         version: 2.33.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@langchain/groq':
+        specifier: ^1.2.1
+        version: 1.2.1(@langchain/core@1.1.45)
       '@linkedin-agent/shared':
         specifier: workspace:*
         version: link:../packages/shared
@@ -667,6 +670,12 @@ packages:
   '@langchain/core@1.1.45':
     resolution: {integrity: sha512-Y/wvuglLTMKJahkl4QD9dBIdF/z/CxZJWdTfHJF/q2jtlJtoFf6Mb5JpGxZfsi3mBY6NSG941FSLTcqhCKrhBA==}
     engines: {node: '>=20'}
+
+  '@langchain/groq@1.2.1':
+    resolution: {integrity: sha512-K3QK3lVTUqxheA9u8upwN0cu04cySyaoKRmnN3vp5fEWQjzm08TYEv6FypyVEcEx0ZzBrHaYKsZIZKZSINN3RQ==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@langchain/core': ^1.0.0
 
   '@langchain/langgraph-checkpoint@1.0.2':
     resolution: {integrity: sha512-F4E5Tr0nt8FGghgdscJtHw+ABzChOHeI80R7Y1pjIHdiJom6c2ieo76vL+FWiny80JmoGqhrVAEIWrw0cXKPxg==}
@@ -2228,6 +2237,10 @@ packages:
 
   graphmatch@1.1.1:
     resolution: {integrity: sha512-5ykVn/EXM1hF0XCaWh05VbYvEiOL2lY1kBxZtaYsyvjp7cmWOU1XsAdfQBwClraEofXDT197lFbXOEVMHpvQOg==}
+
+  groq-sdk@1.2.0:
+    resolution: {integrity: sha512-pMhSYXWcjiqvbOeKdv2zjci1BYjGdp04a40hnmQmJpKJyB6oa+gRndAqE128gwR0NLgYO+Wt1fIF46KNHcplsw==}
+    hasBin: true
 
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -4033,6 +4046,11 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
       - ws
+
+  '@langchain/groq@1.2.1(@langchain/core@1.1.45)':
+    dependencies:
+      '@langchain/core': 1.1.45
+      groq-sdk: 1.2.0
 
   '@langchain/langgraph-checkpoint@1.0.2(@langchain/core@1.1.45)':
     dependencies:
@@ -5864,6 +5882,8 @@ snapshots:
   graphemer@1.4.0: {}
 
   graphmatch@1.1.1: {}
+
+  groq-sdk@1.2.0: {}
 
   has-bigints@1.1.0: {}
 

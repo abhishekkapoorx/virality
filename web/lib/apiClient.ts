@@ -9,18 +9,16 @@ export async function apiFetch(
   init: RequestInit & { token?: string | null } = {}
 ): Promise<Response> {
   const { token, headers, ...rest } = init;
-  const authHeaders: Record<string, string> = {};
+  const requestHeaders = new Headers(headers);
+  requestHeaders.set("content-type", "application/json");
 
   if (token) {
-    authHeaders.Authorization = `Bearer ${token}`;
+    requestHeaders.set("authorization", `Bearer ${token}`);
   }
 
+  console.log(`Making API request to ${apiBase}${path} with init:`, init);
   return fetch(`${apiBase}${path}`, {
     ...rest,
-    headers: {
-      "content-type": "application/json",
-      ...authHeaders,
-      ...(headers as Record<string, string> | undefined)
-    }
+    headers: requestHeaders
   });
 }

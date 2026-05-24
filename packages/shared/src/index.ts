@@ -51,3 +51,8 @@ export interface GenerateDraftResponse {
   targets: DeliveryChannel[];
   usedUpdateRequest: string | null;
 }
+
+// Onboarding / setup types
+export type OnboardingAnswers = import("./schemas/onboarding.js").OnboardingAnswers;
+export type SetupProfile = import("./schemas/onboarding.js").SetupProfile;
+export type SetupGenerationResponse = import("./schemas/onboarding.js").SetupGenerationResponse;
