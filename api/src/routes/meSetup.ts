@@ -6,10 +6,14 @@ import {
   generateStructuredProfileFromAnswers,
   loadSetupBundle,
   SetupValidationError,
-  enrichOnboardingAnswer
+  enrichOnboardingAnswer,
+  updateSetupDetailedDocs,
+  generateAndPersistSetupDetailedDocs,
+  updateSetupProfileSummary
 } from "../services/setupService.js";
 import {
   OnboardingAnswersDraftSchema,
+  SetupProfileSchema,
   SetupGenerationResponseSchema
 } from "@linkedin-agent/shared";
 import { z } from "zod";
@@ -19,6 +23,15 @@ export const meSetupRouter = Router();
 const EnrichRequestSchema = z.object({
   question: z.string().min(1),
   answer: z.string().min(1)
+});
+
+const SetupDetailedDocsSchema = SetupProfileSchema.shape.detailedDocs;
+const SetupProfileSummarySchema = z.object({
+  industry: z.string().min(1),
+  icps: z.array(z.string().min(1)).min(1),
+  writingStyle: z.string().optional(),
+  brandVoice: z.string().optional(),
+  personalizationNotes: z.string().optional()
 });
 
 meSetupRouter.get("/setup", async (req, res) => {
@@ -109,5 +122,57 @@ meSetupRouter.post("/setup/enrich", async (req, res) => {
   } catch (err) {
     console.error("POST /me/setup/enrich failed", err);
     return res.status(500).json({ error: "Failed to enrich answer" });
+  }
+});
+
+meSetupRouter.put("/setup/profile-docs", async (req, res) => {
+  try {
+    const parsed = SetupDetailedDocsSchema.safeParse(req.body);
+    if (!parsed.success || !parsed.data) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error?.issues });
+    }
+
+    const userId = getAuth(req).internalUserId;
+    const updated = await updateSetupDetailedDocs(userId, parsed.data);
+    return res.json(updated);
+  } catch (err) {
+    if (err instanceof SetupValidationError) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error("PUT /me/setup/profile-docs failed", err);
+    return res.status(500).json({ error: "Failed to update profile docs" });
+  }
+});
+
+meSetupRouter.put("/setup/profile", async (req, res) => {
+  try {
+    const parsed = SetupProfileSummarySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
+    }
+
+    const userId = getAuth(req).internalUserId;
+    const updated = await updateSetupProfileSummary(userId, parsed.data);
+    return res.json(updated);
+  } catch (err) {
+    if (err instanceof SetupValidationError) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error("PUT /me/setup/profile failed", err);
+    return res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+meSetupRouter.post("/setup/profile-docs/generate", async (req, res) => {
+  try {
+    const userId = getAuth(req).internalUserId;
+    const updated = await generateAndPersistSetupDetailedDocs(userId);
+    return res.json(updated);
+  } catch (err) {
+    if (err instanceof SetupValidationError) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error("POST /me/setup/profile-docs/generate failed", err);
+    return res.status(500).json({ error: "Failed to generate detailed docs" });
   }
 });

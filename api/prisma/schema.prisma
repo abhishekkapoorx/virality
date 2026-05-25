@@ -83,6 +83,7 @@ model UserSetupProfile {
   personalizationNotes String?  @db.Text
   postConstraints      Json?    // optional structured constraints
   exampleAngles        Json?    // array
+  detailedDocs         Json?    // enriched profile docs with 3 ICP cards
   version              Int      @default(1)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

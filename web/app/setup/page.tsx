@@ -1,13 +1,15 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthedApi } from "@/lib/useAuthedApi";
+import type { SetupDetailedDocs } from "@linkedin-agent/shared";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SetupQuestionActions } from "@/components/setup/SetupQuestionActions";
 import { SetupEnrichmentPreview } from "@/components/setup/SetupEnrichmentPreview";
+import { SetupDetailedDocsEditor } from "@/components/setup/SetupDetailedDocsEditor";
 
 type SetupBundle = {
   profile: null | {
@@ -16,8 +18,10 @@ type SetupBundle = {
     writingStyle: string | null;
     brandVoice: string | null;
     personalizationNotes: string | null;
+    topics?: string | null;
     postConstraints: unknown;
     exampleAngles: unknown;
+    detailedDocs?: SetupDetailedDocs;
     version: number;
   };
   latestAnswers: null | {
@@ -58,6 +62,14 @@ type SetupEnrichmentPreviewState = {
   targetOutcome: string;
   constraint: string;
   enrichedAnswer: string;
+};
+
+type SetupProfileSummaryState = {
+  industry: string;
+  icpsText: string;
+  writingStyle: string;
+  brandVoice: string;
+  personalizationNotes: string;
 };
 
 type QuestionKey = keyof SetupAnswersState;
@@ -135,6 +147,24 @@ function parseErrorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getDetailedDocsFromProfile(profile: SetupProfileView | null): SetupDetailedDocs | null {
+  if (!profile) return null;
+
+  if (isRecord(profile) && "detailedDocs" in profile && isRecord(profile.detailedDocs)) {
+    return profile.detailedDocs as SetupDetailedDocs;
+  }
+
+  if (isRecord(profile.postConstraints) && isRecord(profile.postConstraints.detailedDocs)) {
+    return profile.postConstraints.detailedDocs as SetupDetailedDocs;
+  }
+
+  return null;
+}
+
 export default function SetupPage() {
   const { isLoaded, isSignedIn } = useAuth();
   const { fetchWithAuth } = useAuthedApi();
@@ -158,6 +188,13 @@ export default function SetupPage() {
   const [generating, setGenerating] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [enrichmentPreview, setEnrichmentPreview] = useState<SetupEnrichmentPreviewState | null>(null);
+  const [detailedDocsDraft, setDetailedDocsDraft] = useState<SetupDetailedDocs | null>(null);
+  const [profileSummaryDraft, setProfileSummaryDraft] = useState<SetupProfileSummaryState | null>(null);
+  const [savingDetailedDocs, setSavingDetailedDocs] = useState(false);
+  const [savingProfileSummary, setSavingProfileSummary] = useState(false);
+  const [generatingDetailedDocs, setGeneratingDetailedDocs] = useState(false);
+  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
+  const profileEditorRef = useRef<HTMLDialogElement | null>(null);
 
   const loadBundle = useCallback(async () => {
     setLoading(true);
@@ -191,6 +228,14 @@ export default function SetupPage() {
 
       if (data.profile) {
         setProfile({ profile: data.profile, version: data.profile.version });
+        setDetailedDocsDraft(getDetailedDocsFromProfile(data.profile));
+        setProfileSummaryDraft({
+          industry: data.profile.industry ?? "",
+          icpsText: Array.isArray(data.profile.icps) ? data.profile.icps.join("\n") : "",
+          writingStyle: data.profile.writingStyle ?? "",
+          brandVoice: data.profile.brandVoice ?? "",
+          personalizationNotes: data.profile.personalizationNotes ?? ""
+        });
       }
     } finally {
       setLoading(false);
@@ -224,6 +269,20 @@ export default function SetupPage() {
   useEffect(() => {
     setEnrichmentPreview(null);
   }, [step]);
+
+  useEffect(() => {
+    const dialog = profileEditorRef.current;
+    if (!dialog) return;
+
+    if (profileEditorOpen && !dialog.open) {
+      dialog.showModal();
+      return;
+    }
+
+    if (!profileEditorOpen && dialog.open) {
+      dialog.close();
+    }
+  }, [profileEditorOpen]);
 
   const currentValue = useMemo(() => {
     const value = currentQuestion.key === "icps" ? draft.icpsText : answers[currentQuestion.key];
@@ -354,6 +413,200 @@ export default function SetupPage() {
 
   const isComplete = Boolean(bundle?.isComplete);
   const profileView = bundle?.profile ?? profile?.profile ?? null;
+  const activeDetailedDocs = detailedDocsDraft ?? getDetailedDocsFromProfile(profileView);
+  const savedDetailedDocs = getDetailedDocsFromProfile(profileView);
+  const editableDetailedDocs = activeDetailedDocs ?? savedDetailedDocs;
+  const editableProfileSummary = profileSummaryDraft ?? (profileView ? {
+    industry: profileView.industry ?? "",
+    icpsText: Array.isArray(profileView.icps) ? profileView.icps.join("\n") : "",
+    writingStyle: profileView.writingStyle ?? "",
+    brandVoice: profileView.brandVoice ?? "",
+    personalizationNotes: profileView.personalizationNotes ?? ""
+  } : null);
+
+  useEffect(() => {
+    if (!profileView) return;
+    setProfileSummaryDraft((current) => current ?? {
+      industry: profileView.industry ?? "",
+      icpsText: Array.isArray(profileView.icps) ? profileView.icps.join("\n") : "",
+      writingStyle: profileView.writingStyle ?? "",
+      brandVoice: profileView.brandVoice ?? "",
+      personalizationNotes: profileView.personalizationNotes ?? ""
+    });
+  }, [profileView]);
+
+  async function saveDetailedDocs() {
+    if (!activeDetailedDocs) {
+      setMessage("Generate profile docs first.");
+      return;
+    }
+
+    setSavingDetailedDocs(true);
+    setMessage("Saving detailed docs...");
+
+    try {
+      const res = await fetchWithAuth("/v1/me/setup/profile-docs", {
+        method: "PUT",
+        body: JSON.stringify(activeDetailedDocs)
+      });
+
+      if (!res.ok) {
+        const errorPayload = (await res.json().catch(() => null)) as unknown;
+        setMessage(parseErrorMessage(errorPayload, "Failed to save detailed docs"));
+        return;
+      }
+
+      await loadBundle();
+      setMessage("Detailed docs saved.");
+    } finally {
+      setSavingDetailedDocs(false);
+    }
+  }
+
+  async function saveProfileSummary() {
+    if (!editableProfileSummary) {
+      setMessage("Generate your profile first.");
+      return;
+    }
+
+    setSavingProfileSummary(true);
+    setMessage("Saving profile summary...");
+
+    try {
+      const res = await fetchWithAuth("/v1/me/setup/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          industry: editableProfileSummary.industry,
+          icps: parseIcpsText(editableProfileSummary.icpsText),
+          writingStyle: editableProfileSummary.writingStyle || undefined,
+          brandVoice: editableProfileSummary.brandVoice || undefined,
+          personalizationNotes: editableProfileSummary.personalizationNotes || undefined
+        })
+      });
+
+      if (!res.ok) {
+        const errorPayload = (await res.json().catch(() => null)) as unknown;
+        setMessage(parseErrorMessage(errorPayload, "Failed to save profile summary"));
+        return;
+      }
+
+      await loadBundle();
+      setMessage("Profile summary saved.");
+    } finally {
+      setSavingProfileSummary(false);
+    }
+  }
+
+  async function generateDetailedDocs() {
+    setGeneratingDetailedDocs(true);
+    setMessage("Generating detailed docs...");
+
+    try {
+      const res = await fetchWithAuth("/v1/me/setup/profile-docs/generate", {
+        method: "POST"
+      });
+
+      if (!res.ok) {
+        const errorPayload = (await res.json().catch(() => null)) as unknown;
+        setMessage(parseErrorMessage(errorPayload, "Failed to generate detailed docs"));
+        return;
+      }
+
+      await loadBundle();
+      setMessage("Detailed docs generated.");
+    } finally {
+      setGeneratingDetailedDocs(false);
+    }
+  }
+
+  const profileSummarySection = editableProfileSummary ? (
+    <Card className="mt-4 border-stone-300 bg-[#fcfaf6]">
+      <h2 style={{ marginTop: 0 }}>Edit profile summary</h2>
+      <p style={{ color: "var(--color-ink)" }}>
+        These are the editable fields that feed detailed doc generation.
+      </p>
+
+      <div className="grid gap-4">
+        <Input
+          value={editableProfileSummary.industry}
+          onChange={(event) =>
+            setProfileSummaryDraft((current) =>
+              current ? { ...current, industry: event.target.value } : current
+            )
+          }
+          placeholder="Industry"
+          className="border-stone-300 bg-white text-stone-900"
+        />
+        <Input
+          textarea
+          value={editableProfileSummary.icpsText}
+          onChange={(event) =>
+            setProfileSummaryDraft((current) =>
+              current ? { ...current, icpsText: event.target.value } : current
+            )
+          }
+          placeholder="ICPs, one per line"
+          className="border-stone-300 bg-white text-stone-900"
+        />
+        <Input
+          textarea
+          value={editableProfileSummary.writingStyle}
+          onChange={(event) =>
+            setProfileSummaryDraft((current) =>
+              current ? { ...current, writingStyle: event.target.value } : current
+            )
+          }
+          placeholder="Writing style"
+          className="border-stone-300 bg-white text-stone-900"
+        />
+        <Input
+          textarea
+          value={editableProfileSummary.brandVoice}
+          onChange={(event) =>
+            setProfileSummaryDraft((current) =>
+              current ? { ...current, brandVoice: event.target.value } : current
+            )
+          }
+          placeholder="Brand voice"
+          className="border-stone-300 bg-white text-stone-900"
+        />
+        <Input
+          textarea
+          value={editableProfileSummary.personalizationNotes}
+          onChange={(event) =>
+            setProfileSummaryDraft((current) =>
+              current ? { ...current, personalizationNotes: event.target.value } : current
+            )
+          }
+          placeholder="Personalization notes"
+          className="border-stone-300 bg-white text-stone-900"
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Button
+          type="button"
+          onClick={() => void saveProfileSummary()}
+          disabled={savingProfileSummary}
+          className="rounded-2xl border border-stone-700 bg-stone-900 text-stone-100 hover:bg-stone-800"
+        >
+          {savingProfileSummary ? "Saving profile..." : "Save profile"}
+        </Button>
+        <Button
+          type="button"
+          onClick={() => void generateDetailedDocs()}
+          disabled={generatingDetailedDocs}
+          variant="primary"
+        >
+          {generatingDetailedDocs
+            ? "Generating docs..."
+            : editableDetailedDocs
+              ? "Regenerate detailed docs"
+              : "Generate detailed docs"}
+        </Button>
+      </div>
+    </Card>
+  ) : null;
 
   const dashboardCards = useMemo(() => {
     if (!profileView) return [];
@@ -390,9 +643,14 @@ export default function SetupPage() {
               Your profile is saved and ready for downstream generation.
             </p>
           </div>
-          <Button variant="secondary" type="button" onClick={loadBundle}>
-            Refresh
-          </Button>
+          <div style={{ display: "flex", gap: 12 }}>
+            <Button variant="secondary" type="button" onClick={loadBundle}>
+              Refresh
+            </Button>
+            <Button type="button" onClick={() => setProfileEditorOpen(true)}>
+              Edit
+            </Button>
+          </div>
         </div>
 
         <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
@@ -404,23 +662,94 @@ export default function SetupPage() {
           ))}
         </div>
 
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", marginTop: 16 }}>
-          <Card>
-            <h2 style={{ marginTop: 0 }}>Selected schedule</h2>
-            <p style={{ color: "var(--color-ink)" }}>
-              {bundle?.schedule?.enabled ? "Active" : "Not active yet"}
-            </p>
-            <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{JSON.stringify(bundle?.schedule?.schedule ?? {}, null, 2)}</pre>
-            <p style={{ marginTop: 12 }}>
-              Cron: <strong>{bundle?.schedule?.cronExpr ?? "Not set"}</strong>
-            </p>
-          </Card>
+        {/* Removed: Selected schedule and Generated profile JSON cards per request */}
 
-          <Card>
-            <h2 style={{ marginTop: 0 }}>Generated profile JSON</h2>
-            <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{JSON.stringify(profileView, null, 2)}</pre>
-          </Card>
-        </div>
+        {savedDetailedDocs?.icpCards?.length ? (
+          <section style={{ marginTop: 16 }}>
+            <h2 style={{ margin: "0 0 12px", fontFamily: "var(--font-display)", fontSize: "1.5rem" }}>
+              ICP cards
+            </h2>
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+              {savedDetailedDocs.icpCards.map((card, index) => (
+                <Card key={`${card.label}-${index}`}>
+                  <p style={{ margin: 0, fontSize: 12, letterSpacing: 0.6, textTransform: "uppercase", color: "var(--color-ink)" }}>
+                    ICP {index + 1}
+                  </p>
+                  <h3 style={{ margin: "8px 0 0" }}>{card.label || "Untitled ICP"}</h3>
+                  <p style={{ margin: "8px 0 0", color: "var(--color-ink)" }}>
+                    <strong>Role:</strong> {card.role || "Not set"}
+                  </p>
+                  <p style={{ margin: "6px 0 0", color: "var(--color-ink)" }}>
+                    <strong>Context:</strong> {card.context || "Not set"}
+                  </p>
+                  <p style={{ margin: "6px 0 0", color: "var(--color-ink)" }}>
+                    <strong>Desired outcome:</strong> {card.desiredOutcome || "Not set"}
+                  </p>
+                  <p style={{ margin: "6px 0 0", color: "var(--color-ink)" }}>
+                    <strong>CTA style:</strong> {card.ctaStyle || "Not set"}
+                  </p>
+                  <div style={{ marginTop: 10 }}>
+                    <p style={{ margin: 0, fontWeight: 600 }}>Pain points</p>
+                    <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
+                      {(card.painPoints.length ? card.painPoints : ["Not set"]).map((painPoint, painPointIndex) => (
+                        <li key={`${index}-pain-${painPointIndex}`}>{painPoint}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div style={{ marginTop: 10 }}>
+                    <p style={{ margin: 0, fontWeight: 600 }}>Message angles</p>
+                    <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
+                      {(card.messageAngles.length ? card.messageAngles : ["Not set"]).map((angle, angleIndex) => (
+                        <li key={`${index}-angle-${angleIndex}`}>{angle}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <dialog
+          ref={profileEditorRef}
+          onClose={() => setProfileEditorOpen(false)}
+          className="w-[min(92vw,960px)] rounded-[var(--radius-lg)] border border-[var(--color-soft-border)] bg-[var(--color-surface)] p-0 shadow-[0_24px_80px_rgba(0,0,0,0.22)] backdrop:bg-black/40"
+        >
+          <div className="max-h-[85vh] overflow-y-auto p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="m-0 font-[var(--font-display)] text-2xl text-[var(--color-ink)]">Edit profile</h2>
+                <p className="mt-2 text-[var(--color-ink)]">
+                  Update the editable profile summary, then regenerate the detailed docs below.
+                </p>
+              </div>
+              <Button variant="ghost" type="button" onClick={() => setProfileEditorOpen(false)}>
+                Close
+              </Button>
+            </div>
+
+            {profileSummarySection}
+
+            {editableDetailedDocs ? (
+              <section style={{ marginTop: 16 }}>
+                <div style={{ marginBottom: 12 }}>
+                  <h2 style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: "1.5rem" }}>
+                    Edit detailed docs
+                  </h2>
+                  <p style={{ margin: "0.5rem 0 0", color: "var(--color-ink)" }}>
+                    Update the enriched industry narrative, topic lanes, and all 3 ICP cards here.
+                  </p>
+                </div>
+                <SetupDetailedDocsEditor
+                  docs={editableDetailedDocs}
+                  saving={savingDetailedDocs}
+                  onChange={setDetailedDocsDraft}
+                  onSave={() => void saveDetailedDocs()}
+                />
+              </section>
+            ) : null}
+          </div>
+        </dialog>
       </main>
     );
   }
@@ -517,6 +846,17 @@ export default function SetupPage() {
                 </Button>
               </div>
             </Card>
+          ) : null}
+
+          {profileSummarySection}
+
+          {editableDetailedDocs ? (
+            <SetupDetailedDocsEditor
+              docs={editableDetailedDocs}
+              saving={savingDetailedDocs}
+              onChange={setDetailedDocsDraft}
+              onSave={() => void saveDetailedDocs()}
+            />
           ) : null}
         </div>
       </div>

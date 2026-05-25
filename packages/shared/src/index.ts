@@ -55,4 +55,6 @@ export interface GenerateDraftResponse {
 // Onboarding / setup types
 export type OnboardingAnswers = import("./schemas/onboarding.js").OnboardingAnswers;
 export type SetupProfile = import("./schemas/onboarding.js").SetupProfile;
+export type SetupDetailedDocs = import("./schemas/onboarding.js").SetupDetailedDocs;
 export type SetupGenerationResponse = import("./schemas/onboarding.js").SetupGenerationResponse;
+export type { SetupDetailedDocs as SetupDetailedDocsType } from "./schemas/onboarding.js";

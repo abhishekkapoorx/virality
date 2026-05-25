@@ -26,18 +26,11 @@ export function SetupQuestionActions({
   return (
     <>
       <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <Button
-          variant="secondary"
-          className="rounded-2xl border-stone-700 bg-stone-900 text-stone-100 hover:bg-stone-800"
-          type="button"
-          onClick={onGenerateWithAi}
-          disabled={enriching}
-        >
+        <Button variant="neutral" type="button" onClick={onGenerateWithAi} disabled={enriching}>
           {enriching ? "Enriching..." : "Generate with AI"}
         </Button>
         <Button
-          variant="ghost"
-          className="rounded-2xl border border-[#d7c2a8] bg-[#f4e8d8] text-stone-900 hover:bg-[#efe0cd]"
+          variant="outline"
           type="button"
           onClick={onSaveDraft}
           disabled={saving}
@@ -51,7 +44,7 @@ export function SetupQuestionActions({
           Back
         </Button>
         <Button
-          className="rounded-2xl border border-stone-700 bg-stone-900 text-stone-100 hover:bg-stone-800"
+          variant="neutral"
           type="button"
           onClick={onNext}
           disabled={saving || generating}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { Button } from "@/components/ui/Button";
 
 const footerLinks = [
   { href: "/setup", label: "Setup" },
@@ -28,7 +29,7 @@ export function SiteFooter() {
         <div className="flex items-center gap-4 text-stone-300">
           <SignedOut>
             <SignInButton mode="modal">
-              <button className="transition hover:text-white">Sign in</button>
+              <Button variant="ghost">Sign in</Button>
             </SignInButton>
           </SignedOut>
           <SignedIn>

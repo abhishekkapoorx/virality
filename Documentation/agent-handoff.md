@@ -49,20 +49,52 @@ Fix setup flow reliability (save/generate profile), then redesign setup UX into 
 - Normalized the shared web API fetch wrapper to use a `Headers` object in `web/lib/apiClient.ts`.
 - Fixed nullable setup bundle access in `web/app/setup/page.tsx` before hydrating the latest answers.
 - Fixed `/v1/me/setup/enrich` to await the async enrichment helper and unwrap Groq-fenced JSON before parsing.
+- Added AI-generated detailed setup docs (including ICP cards) during `POST /v1/me/setup/generate`.
+- Added `PUT /v1/me/setup/profile-docs` to persist user edits to detailed docs.
+- Added editable detailed-docs UI cards in setup and dashboard views.
+- Added post-save ICP dashboard cards in setup: each generated ICP now renders as a separate card (e.g., 3 ICPs => 3 cards).
+- Promoted the detailed-doc editor to a primary section on `/setup` so it is visible immediately after profile generation and in the completed dashboard.
+- Added a `/setup` button to generate detailed docs when no saved detailed-doc payload exists.
+- Made the generated profile summary fields editable on `/setup` and placed the detailed-doc regenerate button directly below them.
+- Added an Edit button beside Refresh on the setup dashboard that opens a modal for editing the profile summary and detailed docs.
+- Added a dedicated `UserSetupProfile.detailedDocs` JSON column and backfill migration so enriched docs are stored directly on the profile row.
+- Tightened the shared detailed-doc schema and prompt so generated profiles always contain exactly 3 ICP cards.
+- Removed silent fallback generation for detailed docs; profile generation now requires a successful LLM enrichment pass.
 
 ## Current Project Structure Relevant to the Task
 
 - `web/app/setup/page.tsx`: step-based onboarding UI + dashboard mode.
+- `web/app/setup/page.tsx`: dashboard now includes saved ICP card grid and a prominent editable detailed-docs section.
+- `web/app/setup/page.tsx`: shows a generate button when detailed docs are missing.
+- `web/app/setup/page.tsx`: editable profile summary section + regenerate detailed docs button.
+- `web/app/setup/page.tsx`: dashboard Edit button opens a modal for profile editing.
+- `web/components/setup/SetupDetailedDocsEditor.tsx`: editable detailed docs + ICP cards UI.
 - `api/src/routes/meSetup.ts`: setup load/save/generate/complete + enrich route.
+- `api/src/routes/meSetup.ts`: profile-summary update route for editable generated fields.
 - `api/src/services/setupService.ts`: setup persistence/generation/enrichment logic.
+- `api/src/services/setupService.ts`: profile summary update helper.
 - `packages/shared/src/schemas/onboarding.ts`: strict + draft onboarding schemas.
+- `packages/shared/src/prompts/setupDetailedDocs.ts`: prompt builder for structured detailed docs generation.
+- `api/prisma/schema.prisma`: `UserSetupProfile.detailedDocs` column for persisted detailed docs.
 - `Documentation/design-language.md`: visual direction used in setup refactor.
 
 ## Current Status
 
 Setup is now wired for step-by-step draft saving and profile generation. UI flow is centered, one question at a time, and includes per-question enrichment via LangChain Groq.
 
-Validation completed: `pnpm lint`, `pnpm --filter @linkedin-agent/api typecheck`, and `pnpm --filter web typecheck`.
+After users save detailed docs, the setup dashboard shows persisted ICPs as distinct cards for easier review.
+
+The editable detailed-docs form is now displayed prominently on `/setup`, not hidden below the fold.
+
+If a profile exists but `detailedDocs` is missing, `/setup` now shows a dedicated generate button that re-runs the detailed-doc LLM flow from the stored onboarding answers.
+
+The generated profile summary itself is now editable, so users can change industry, ICPs, writing style, brand voice, and personalization notes before regenerating the detailed docs.
+
+Profile generation now writes the enriched detailed docs directly to `UserSetupProfile.detailedDocs`, and the generator normalizes to exactly three ICP cards.
+
+Detailed docs are now LLM-only: if the model does not return the full enriched shape, profile generation fails instead of inventing placeholder content.
+
+Validation completed: `pnpm --filter @linkedin-agent/shared build`, `pnpm lint`, `pnpm --filter @linkedin-agent/api typecheck`, and `pnpm --filter @linkedin-agent/web typecheck`.
 
 Recent runtime root cause: Groq returned fenced JSON (```json ... ```), which caused `JSON.parse` to throw and terminate the API request path before a response was sent.
 

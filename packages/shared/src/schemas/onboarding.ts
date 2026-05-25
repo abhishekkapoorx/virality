@@ -28,11 +28,33 @@ export const SetupProfileSchema = z.object({
   writingStyle: z.string().optional(),
   brandVoice: z.string().optional(),
   personalizationNotes: z.string().optional(),
+  topics: z.string().optional(),
   postConstraints: z.record(z.any()).optional(),
-  exampleAngles: z.array(z.string()).optional()
+  exampleAngles: z.array(z.string()).optional(),
+  detailedDocs: z.object({
+    industryNarrative: z.string().min(1),
+    topicLanes: z.array(z.string().min(1)).min(1),
+    writingStyleGuide: z.string().min(1),
+    brandVoiceGuide: z.string().min(1),
+    personalizationGuide: z.string().min(1),
+    icpCards: z
+      .array(
+        z.object({
+          label: z.string().min(1),
+          role: z.string().min(1),
+          context: z.string().min(1),
+          painPoints: z.array(z.string().min(1)).min(1),
+          desiredOutcome: z.string().min(1),
+          messageAngles: z.array(z.string().min(1)).min(1),
+          ctaStyle: z.string().min(1)
+        })
+      )
+      .length(3)
+  })
 });
 
 export type SetupProfile = z.infer<typeof SetupProfileSchema>;
+export type SetupDetailedDocs = NonNullable<SetupProfile["detailedDocs"]>;
 
 export const SetupGenerationResponseSchema = z.object({
   profile: SetupProfileSchema,
