@@ -32,9 +32,21 @@ const marketplaceItemSchema = z.object({
   outcome: z.string().optional()
 });
 
+const weekdaySelectionSchema = z
+  .object({
+    monday: z.string().nullable().optional().default(null),
+    tuesday: z.string().nullable().optional().default(null),
+    wednesday: z.string().nullable().optional().default(null),
+    thursday: z.string().nullable().optional().default(null),
+    friday: z.string().nullable().optional().default(null),
+    saturday: z.string().nullable().optional().default(null),
+    sunday: z.string().nullable().optional().default(null)
+  })
+  .strict();
+
 const selectionSchema = z.object({
   selectedHookIds: z.array(z.string()),
-  selectedPostStyleIdsByDay: z.record(z.string(), z.string().nullable())
+  selectedPostStyleIdsByDay: weekdaySelectionSchema
 });
 
 export const meMarketplaceRouter = Router();
