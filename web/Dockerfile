@@ -2,7 +2,7 @@
 # Multi-stage: deps → development | (builder → production)
 # Next.js `output: "standalone"` — minimal production image
 
-FROM node:22-alpine AS base
+FROM node:24-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.12.2 --activate
@@ -34,7 +34,7 @@ COPY packages/shared ./packages/shared
 RUN pnpm --filter @linkedin-agent/shared build \
   && pnpm --filter @linkedin-agent/web build
 
-FROM node:22-alpine AS production
+FROM node:24-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

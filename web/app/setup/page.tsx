@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { SetupQuestionActions } from "@/components/setup/SetupQuestionActions";
 import { SetupEnrichmentPreview } from "@/components/setup/SetupEnrichmentPreview";
 import { SetupDetailedDocsEditor } from "@/components/setup/SetupDetailedDocsEditor";
+import { SetupMarketplaceDashboard } from "@/components/setup/SetupMarketplaceDashboard";
 
 type SetupBundle = {
   profile: null | {
@@ -661,6 +662,8 @@ export default function SetupPage() {
             </Card>
           ))}
         </div>
+
+        <SetupMarketplaceDashboard schedule={bundle?.schedule ?? null} />
 
         {/* Removed: Selected schedule and Generated profile JSON cards per request */}
 
