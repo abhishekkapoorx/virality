@@ -183,15 +183,11 @@ function VisibilityBadge({ visibility }: { visibility: MarketplaceVisibility }) 
 function MarketplaceListCard({
   item,
   active,
-  onSelect,
-  onAdd,
-  addLabel
+  onSelect
 }: {
   item: CatalogHook | CatalogPostType;
   active: boolean;
   onSelect: () => void;
-  onAdd: () => void;
-  addLabel: string;
 }) {
   return (
     <button
@@ -225,17 +221,12 @@ function MarketplaceListCard({
           </div>
         </div>
 
-        <button
-          type="button"
-          aria-label={addLabel}
-          onClick={(event) => {
-            event.stopPropagation();
-            onAdd();
-          }}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-soft-border)] bg-[var(--color-surface-soft)] text-[var(--color-primary)] transition hover:border-[var(--color-strong-border)] hover:bg-white"
+        <span
+          aria-hidden="true"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-soft-border)] bg-[var(--color-surface-soft)] text-[var(--color-primary)]"
         >
           +
-        </button>
+        </span>
       </div>
       <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted-alt)]">Click to open details</p>
     </button>
@@ -1183,9 +1174,7 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
                               key={item.id}
                               item={item}
                               active={item.id === activeItem?.id}
-                              addLabel="Add hook"
                               onSelect={() => setActiveItemId(item.id)}
-                              onAdd={() => addHookToSelection(item.id)}
                             />
                           ))}
                         </div>
@@ -1199,9 +1188,7 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
                               key={item.id}
                               item={item}
                               active={item.id === activeItem?.id}
-                              addLabel="Add hook"
                               onSelect={() => setActiveItemId(item.id)}
-                              onAdd={() => addHookToSelection(item.id)}
                             />
                           ))}
                         </div>
@@ -1251,9 +1238,7 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
                               key={item.id}
                               item={item}
                               active={item.id === activeItem?.id}
-                              addLabel={`Assign to ${selectedDayLabel}`}
                               onSelect={() => setActiveItemId(item.id)}
-                              onAdd={() => assignPostType(selectedDayKey, item.id)}
                             />
                           ))}
                         </div>
@@ -1267,9 +1252,7 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
                               key={item.id}
                               item={item}
                               active={item.id === activeItem?.id}
-                              addLabel={`Assign to ${selectedDayLabel}`}
                               onSelect={() => setActiveItemId(item.id)}
-                              onAdd={() => assignPostType(selectedDayKey, item.id)}
                             />
                           ))}
                         </div>
