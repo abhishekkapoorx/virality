@@ -121,45 +121,39 @@ async function replaceSelections(userId: string, selectedHookIds: string[], sele
     }];
   });
 
-  const operations = [
-    prisma.userSelectedHook.deleteMany({ where: { userId } }),
-    prisma.userSelectedPostStyle.deleteMany({ where: { userId } })
-  ];
+  await prisma.$transaction(async (tx) => {
+    await tx.userSelectedHook.deleteMany({ where: { userId } });
+    await tx.userSelectedPostStyle.deleteMany({ where: { userId } });
 
-  if (selectedHookIds.length > 0) {
-    operations.push(
-      prisma.userSelectedHook.createMany({
+    if (selectedHookIds.length > 0) {
+      await tx.userSelectedHook.createMany({
         data: selectedHookIds.map((hookId, ordering) => ({ userId, hookId, ordering }))
-      })
-    );
-  }
-
-  if (selectedPostStyleEntries.length > 0) {
-    operations.push(
-      prisma.userSelectedPostStyle.createMany({
-        data: selectedPostStyleEntries
-      })
-    );
-  }
-
-  await prisma.$transaction(operations);
-
-  const existingSchedule = await prisma.weeklyPostSchedule.findFirst({ where: { userId } });
-  if (existingSchedule) {
-    await prisma.weeklyPostSchedule.update({
-      where: { id: existingSchedule.id },
-      data: { schedule: { selectedPostStyleIdsByDay } }
-    });
-    return;
-  }
-
-  await prisma.weeklyPostSchedule.create({
-    data: {
-      userId,
-      schedule: { selectedPostStyleIdsByDay },
-      cronExpr: null,
-      enabled: false
+      });
     }
+
+    if (selectedPostStyleEntries.length > 0) {
+      await tx.userSelectedPostStyle.createMany({
+        data: selectedPostStyleEntries
+      });
+    }
+
+    const existingSchedule = await tx.weeklyPostSchedule.findFirst({ where: { userId } });
+    if (existingSchedule) {
+      await tx.weeklyPostSchedule.update({
+        where: { id: existingSchedule.id },
+        data: { schedule: { selectedPostStyleIdsByDay } }
+      });
+      return;
+    }
+
+    await tx.weeklyPostSchedule.create({
+      data: {
+        userId,
+        schedule: { selectedPostStyleIdsByDay },
+        cronExpr: null,
+        enabled: false
+      }
+    });
   });
 }
 
