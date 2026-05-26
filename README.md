@@ -27,7 +27,7 @@ Monorepo initialized from architecture plan with:
 
 ## Docker
 
-Images use **Node.js 22** (`node:22-alpine`) with multi-stage Dockerfiles (`development` vs final **`production`**).
+Images use **Node.js 22** (`node:24-alpine`) with multi-stage Dockerfiles (`development` vs final **`production`**).
 
 - **Production-style stack** (optimized runtime images): `pnpm docker:up` (same as `pnpm docker:prod`)
 - **Dev stack + live sync** ([Compose Watch](https://docs.docker.com/compose/how-tos/development/)): `pnpm docker:dev`  
