@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import type { Visibility } from "../generated/prisma/enums.js";
 
 function toTextSearchQuery(value?: string | null): string {
   return value?.trim().toLowerCase() ?? "";
@@ -27,7 +28,7 @@ function mapHook(row: {
     isMine: row.ownerUserId === currentUserId,
     shortDescription: row.description ?? String(definition.shortDescription ?? ""),
     longDescription: String(definition.longDescription ?? row.description ?? ""),
-    visibility: row.visibility,
+    visibility: String(row.visibility).toLowerCase(),
     icon: typeof definition.icon === "string" ? definition.icon : undefined,
     tags: row.tags ?? [],
     examples: Array.isArray(definition.examples)
@@ -64,7 +65,7 @@ function mapPostStyle(row: {
     isMine: row.ownerUserId === currentUserId,
     shortDescription: row.description ?? String(template.shortDescription ?? ""),
     longDescription: String(template.longDescription ?? row.description ?? ""),
-    visibility: row.visibility,
+    visibility: String(row.visibility).toLowerCase(),
     icon: typeof template.icon === "string" ? template.icon : undefined,
     tags: row.tags ?? [],
     structure: String(template.structure ?? ""),
@@ -79,11 +80,11 @@ function mapPostStyle(row: {
 }
 
 function filterVisibleHook(row: { visibility: string; ownerUserId: string | null }, userId: string): boolean {
-  return row.visibility === "public" || row.ownerUserId === userId;
+  return String(row.visibility) === "PUBLIC" || row.ownerUserId === userId;
 }
 
 function filterVisiblePostStyle(row: { visibility: string; ownerUserId: string | null }, userId: string): boolean {
-  return row.visibility === "public" || row.ownerUserId === userId;
+  return String(row.visibility) === "PUBLIC" || row.ownerUserId === userId;
 }
 
 function normalizeDaySelections(value: unknown): Record<string, string | null> {
@@ -170,7 +171,7 @@ export async function listHooksForUser(userId: string, query?: string | null) {
     : null;
 
   const rows = await prisma.marketplaceHook.findMany({
-    where: searchWhere ? { AND: [{ OR: [{ visibility: "public" }, { ownerUserId: userId }] }, searchWhere] } : { OR: [{ visibility: "public" }, { ownerUserId: userId }] },
+    where: searchWhere ? ( { AND: [{ OR: [{ visibility: "PUBLIC" }, { ownerUserId: userId }] }, searchWhere] } as any) : { OR: [{ visibility: "PUBLIC" }, { ownerUserId: userId }] },
     orderBy: [{ visibility: "desc" }, { createdAt: "desc" }]
   });
 
@@ -229,7 +230,7 @@ export async function createHookForUser(userId: string, payload: {
   const row = await prisma.marketplaceHook.create({
     data: {
       ownerUserId: userId,
-      visibility: payload.visibility,
+      visibility: payload.visibility.toUpperCase() as unknown as Visibility,
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
@@ -264,7 +265,7 @@ export async function updateHookForUser(userId: string, hookId: string, payload:
   const row = await prisma.marketplaceHook.update({
     where: { id: hookId },
     data: {
-      visibility: payload.visibility,
+      visibility: payload.visibility.toUpperCase() as unknown as Visibility,
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
@@ -308,7 +309,7 @@ export async function createPostStyleForUser(userId: string, payload: {
   const row = await prisma.marketplacePostStyle.create({
     data: {
       ownerUserId: userId,
-      visibility: payload.visibility,
+      visibility: payload.visibility.toUpperCase() as unknown as Visibility,
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
@@ -343,7 +344,7 @@ export async function updatePostStyleForUser(userId: string, postStyleId: string
   const row = await prisma.marketplacePostStyle.update({
     where: { id: postStyleId },
     data: {
-      visibility: payload.visibility,
+      visibility: payload.visibility.toUpperCase() as unknown as Visibility,
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
@@ -395,11 +396,11 @@ export async function updateMarketplaceSelections(
   selectedHookIds: string[],
   selectedPostStyleIdsByDay: Record<string, string | null>
 ) {
-  const accessibleHooks = await prisma.marketplaceHook.findMany({ where: { OR: [{ visibility: "public" }, { ownerUserId: userId }] } });
+  const accessibleHooks = await prisma.marketplaceHook.findMany({ where: { OR: [{ visibility: "PUBLIC" }, { ownerUserId: userId }] } });
   const accessibleHookIds = new Set(accessibleHooks.map((entry) => entry.id));
   const filteredHookIds = selectedHookIds.filter((hookId) => accessibleHookIds.has(hookId));
 
-  const accessibleStyles = await prisma.marketplacePostStyle.findMany({ where: { OR: [{ visibility: "public" }, { ownerUserId: userId }] } });
+  const accessibleStyles = await prisma.marketplacePostStyle.findMany({ where: { OR: [{ visibility: "PUBLIC" }, { ownerUserId: userId }] } });
   const accessibleStyleIds = new Set(accessibleStyles.map((entry) => entry.id));
   const filteredPostStyleIdsByDay = Object.fromEntries(
     Object.entries(selectedPostStyleIdsByDay).map(([dayKey, styleId]) => [
