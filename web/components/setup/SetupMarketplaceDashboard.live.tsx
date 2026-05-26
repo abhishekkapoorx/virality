@@ -771,38 +771,74 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
   }
 
   async function addHookToSelection(hookId: string) {
+    const previousSelections = selections;
     const nextSelectedHookIds = selections.selectedHookIds.includes(hookId)
       ? selections.selectedHookIds
       : [...selections.selectedHookIds, hookId];
 
     setSelections((current) => ({ ...current, selectedHookIds: nextSelectedHookIds }));
-    await saveSelections({ ...selections, selectedHookIds: nextSelectedHookIds });
-    setPanel("hooks");
-    setActiveItemId(hookId);
-    setStatusMessage("Hook selection saved.");
+
+    try {
+      await saveSelections({ ...selections, selectedHookIds: nextSelectedHookIds });
+      setPanel("hooks");
+      setActiveItemId(hookId);
+      setStatusMessage("Hook selection saved.");
+    } catch (error) {
+      setSelections(previousSelections);
+      setStatusMessage(
+        `Unable to save hook selection. ${error instanceof Error ? error.message : "Please try again."}`
+      );
+    }
   }
 
   async function removeSelectedHook(hookId: string) {
+    const previousSelections = selections;
     const nextSelectedHookIds = selections.selectedHookIds.filter((currentHookId) => currentHookId !== hookId);
     setSelections((current) => ({ ...current, selectedHookIds: nextSelectedHookIds }));
-    await saveSelections({ ...selections, selectedHookIds: nextSelectedHookIds });
-    setStatusMessage("Hook removed from your selection.");
+
+    try {
+      await saveSelections({ ...selections, selectedHookIds: nextSelectedHookIds });
+      setStatusMessage("Hook removed from your selection.");
+    } catch (error) {
+      setSelections(previousSelections);
+      setStatusMessage(
+        `Unable to remove hook from your selection. ${error instanceof Error ? error.message : "Please try again."}`
+      );
+    }
   }
 
   async function assignPostType(dayKey: SetupMarketplaceDayKey, postTypeId: string) {
+    const previousSelections = selections;
     const nextSelection = { ...selections.selectedPostStyleIdsByDay, [dayKey]: postTypeId };
     setSelections((current) => ({ ...current, selectedPostStyleIdsByDay: nextSelection }));
-    await saveSelections({ ...selections, selectedPostStyleIdsByDay: nextSelection });
-    setPanel("post-types");
-    setActiveItemId(postTypeId);
-    setStatusMessage(`Saved ${selectedDayLabel} schedule item.`);
+
+    try {
+      await saveSelections({ ...selections, selectedPostStyleIdsByDay: nextSelection });
+      setPanel("post-types");
+      setActiveItemId(postTypeId);
+      setStatusMessage(`Saved ${selectedDayLabel} schedule item.`);
+    } catch (error) {
+      setSelections(previousSelections);
+      setStatusMessage(
+        `Unable to save ${selectedDayLabel} schedule item. ${error instanceof Error ? error.message : "Please try again."}`
+      );
+    }
   }
 
   async function clearDay(dayKey: SetupMarketplaceDayKey) {
+    const previousSelections = selections;
     const nextSelection = { ...selections.selectedPostStyleIdsByDay, [dayKey]: null };
     setSelections((current) => ({ ...current, selectedPostStyleIdsByDay: nextSelection }));
-    await saveSelections({ ...selections, selectedPostStyleIdsByDay: nextSelection });
-    setStatusMessage(`${SETUP_MARKETPLACE_DAYS.find((day) => day.key === dayKey)?.label ?? dayKey} cleared.`);
+
+    try {
+      await saveSelections({ ...selections, selectedPostStyleIdsByDay: nextSelection });
+      setStatusMessage(`${SETUP_MARKETPLACE_DAYS.find((day) => day.key === dayKey)?.label ?? dayKey} cleared.`);
+    } catch (error) {
+      setSelections(previousSelections);
+      setStatusMessage(
+        `Unable to clear ${SETUP_MARKETPLACE_DAYS.find((day) => day.key === dayKey)?.label ?? dayKey}. ${error instanceof Error ? error.message : "Please try again."}`
+      );
+    }
   }
 
   function startHookCreate() {
