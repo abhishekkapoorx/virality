@@ -5,10 +5,6 @@ function toTextSearchQuery(value?: string | null): string {
   return value?.trim().toLowerCase() ?? "";
 }
 
-function serializeDefinition(value: Record<string, unknown>): Prisma.InputJsonValue {
-  return value as Prisma.InputJsonValue;
-}
-
 function mapHook(row: {
   id: string;
   ownerUserId: string | null;
