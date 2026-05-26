@@ -1,5 +1,4 @@
 import { prisma } from "../lib/prisma.js";
-import type { Prisma } from "../generated/prisma/client.js";
 
 function toTextSearchQuery(value?: string | null): string {
   return value?.trim().toLowerCase() ?? "";
@@ -158,19 +157,24 @@ async function replaceSelections(userId: string, selectedHookIds: string[], sele
 }
 
 export async function listHooksForUser(userId: string, query?: string | null) {
-  const rows = await prisma.marketplaceHook.findMany({ orderBy: [{ visibility: "desc" }, { createdAt: "desc" }] });
-  const filtered = rows.filter((row) => filterVisibleHook(row, userId));
   const normalizedQuery = toTextSearchQuery(query);
+  const queryTerms = normalizedQuery.length > 0 ? normalizedQuery.split(/\s+/).filter(Boolean) : [];
+  const searchWhere = normalizedQuery
+    ? {
+        OR: [
+          { title: { contains: normalizedQuery, mode: "insensitive" } },
+          { description: { contains: normalizedQuery, mode: "insensitive" } },
+          ...(queryTerms.length > 0 ? [{ tags: { hasSome: queryTerms } }] : [])
+        ]
+      }
+    : null;
 
-  return filtered
-    .map((row) => mapHook(row, userId))
-    .filter((row) => {
-      if (!normalizedQuery) return true;
-      return [row.title, row.author, row.shortDescription, row.longDescription, ...(row.tags ?? [])]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedQuery);
-    });
+  const rows = await prisma.marketplaceHook.findMany({
+    where: searchWhere ? { AND: [{ OR: [{ visibility: "public" }, { ownerUserId: userId }] }, searchWhere] } : { OR: [{ visibility: "public" }, { ownerUserId: userId }] },
+    orderBy: [{ visibility: "desc" }, { createdAt: "desc" }]
+  });
+
+  return rows.map((row) => mapHook(row, userId));
 }
 
 export async function listPostStylesForUser(userId: string, query?: string | null) {
