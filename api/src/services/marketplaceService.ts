@@ -379,11 +379,6 @@ export async function getMarketplaceSelections(userId: string) {
     orderBy: { ordering: "asc" }
   });
 
-  const selectedStyles = await prisma.userSelectedPostStyle.findMany({
-    where: { userId },
-    orderBy: { ordering: "asc" }
-  });
-
   const schedule = await prisma.weeklyPostSchedule.findFirst({ where: { userId } });
   const scheduleSelections = normalizeDaySelections(
     schedule?.schedule && typeof schedule.schedule === "object" ? (schedule.schedule as Record<string, unknown>).selectedPostStyleIdsByDay : null
@@ -391,7 +386,6 @@ export async function getMarketplaceSelections(userId: string) {
 
   return {
     selectedHookIds: selectedHooks.map((entry) => entry.hookId),
-    selectedPostStyleIds: selectedStyles.map((entry) => entry.styleId),
     selectedPostStyleIdsByDay: scheduleSelections
   };
 }
