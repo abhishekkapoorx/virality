@@ -114,13 +114,16 @@ function normalizeDaySelections(value: unknown): Record<string, string | null> {
 
 async function replaceSelections(userId: string, selectedHookIds: string[], selectedPostStyleIdsByDay: Record<string, string | null>) {
   const dayOrder = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-  const selectedPostStyleEntries = Object.entries(selectedPostStyleIdsByDay)
-    .filter(([, styleId]) => typeof styleId === "string" && styleId.length > 0)
-    .map(([dayKey, styleId]) => ({
+  const selectedPostStyleEntries = dayOrder.flatMap((dayKey, ordering) => {
+    const styleId = selectedPostStyleIdsByDay[dayKey];
+    if (typeof styleId !== "string" || styleId.length === 0) return [];
+
+    return [{
       userId,
-      styleId: styleId as string,
-      ordering: dayOrder.indexOf(dayKey)
-    }));
+      styleId,
+      ordering
+    }];
+  });
 
   const operations = [
     prisma.userSelectedHook.deleteMany({ where: { userId } }),
