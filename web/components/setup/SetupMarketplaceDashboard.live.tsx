@@ -1233,7 +1233,9 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
                         onChange={setHookForm}
                         onReset={startHookCreate}
                         onSubmit={() => {
-                          void submitHookForm();
+                          void submitHookForm().catch((error) => {
+                            console.error("Failed to submit hook form", error);
+                          });
                         }}
                       />
                     </div>
