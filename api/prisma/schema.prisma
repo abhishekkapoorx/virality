@@ -84,7 +84,7 @@ model UserSetupProfile {
   id                   String   @id @default(cuid())
   userId               String   @unique
   industry             String?
-  icps                 Json // array of strings, min 3 expected
+  icps                 String[] // array of strings, min 3 expected
   writingStyle         String?
   brandVoice           String?
   personalizationNotes String?  @db.Text
@@ -115,33 +115,43 @@ model WeeklyPostSchedule {
 }
 
 model MarketplacePostStyle {
-  id                     String                  @id @default(cuid())
-  ownerUserId            String?
-  ownerUser              User?                   @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
-  visibility             Visibility              @default(PUBLIC)
-  title                  String
-  description            String?
-  tags                   String[]
-  template               Json
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  userSelectedPostStyles UserSelectedPostStyle[]
+  id                       String                  @id @default(cuid())
+  ownerUserId              String?
+  ownerUser                User?                   @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  visibility               Visibility              @default(PUBLIC)
+  title                    String
+  description              String?
+  tags                     String[]
+  templateShortDescription String
+  templateLongDescription  String?
+  templateIcon             String?
+  templateStructure        String?
+  templateExpectedHooks    String[]
+  templateOutcome          String?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  userSelectedPostStyles   UserSelectedPostStyle[]
 
   @@index([ownerUserId])
 }
 
 model MarketplaceHook {
-  id                String             @id @default(cuid())
-  ownerUserId       String?
-  ownerUser         User?              @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
-  visibility        Visibility         @default(PUBLIC)
-  title             String
-  description       String?
-  tags              String[]
-  definition        Json
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  userSelectedHooks UserSelectedHook[]
+  id                     String             @id @default(cuid())
+  ownerUserId            String?
+  ownerUser              User?              @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  visibility             Visibility         @default(PUBLIC)
+  title                  String
+  description            String?
+  tags                   String[]
+  defShortDescription    String
+  defLongDescription     String?
+  defIcon                String?
+  defExamples            String[]
+  defWhenToUse           String?
+  defPsychologicalEffect String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  userSelectedHooks      UserSelectedHook[]
 
   @@index([ownerUserId])
 }

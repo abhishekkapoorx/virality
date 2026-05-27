@@ -12,30 +12,28 @@ function mapHook(row: {
   title: string;
   description: string | null;
   tags: string[];
-  definition: unknown;
+  defShortDescription: string;
+  defLongDescription: string | null;
+  defIcon: string | null;
+  defExamples: string[];
+  defWhenToUse: string | null;
+  defPsychologicalEffect: string | null;
   createdAt: Date;
   updatedAt: Date;
 }, currentUserId?: string) {
-  const definition = (typeof row.definition === "object" && row.definition !== null ? row.definition : {}) as Record<
-    string,
-    unknown
-  >;
-
   return {
     id: row.id,
     title: row.title,
     author: row.ownerUserId === currentUserId ? "You" : row.ownerUserId ? "Community" : "LinkedIn Agent",
     isMine: row.ownerUserId === currentUserId,
-    shortDescription: row.description ?? String(definition.shortDescription ?? ""),
-    longDescription: String(definition.longDescription ?? row.description ?? ""),
+    shortDescription: row.description ?? String(row.defShortDescription ?? ""),
+    longDescription: String(row.defLongDescription ?? row.description ?? ""),
     visibility: String(row.visibility).toLowerCase(),
-    icon: typeof definition.icon === "string" ? definition.icon : undefined,
+    icon: row.defIcon ?? undefined,
     tags: row.tags ?? [],
-    examples: Array.isArray(definition.examples)
-      ? definition.examples.filter((item): item is string => typeof item === "string")
-      : [],
-    whenToUse: String(definition.whenToUse ?? ""),
-    psychologicalEffect: String(definition.psychologicalEffect ?? ""),
+    examples: Array.isArray(row.defExamples) ? row.defExamples.filter((item): item is string => typeof item === "string") : [],
+    whenToUse: String(row.defWhenToUse ?? ""),
+    psychologicalEffect: String(row.defPsychologicalEffect ?? ""),
     ownerUserId: row.ownerUserId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
@@ -49,30 +47,28 @@ function mapPostStyle(row: {
   title: string;
   description: string | null;
   tags: string[];
-  template: unknown;
+  templateShortDescription: string;
+  templateLongDescription: string | null;
+  templateIcon: string | null;
+  templateStructure: string | null;
+  templateExpectedHooks: string[];
+  templateOutcome: string | null;
   createdAt: Date;
   updatedAt: Date;
 }, currentUserId?: string) {
-  const template = (typeof row.template === "object" && row.template !== null ? row.template : {}) as Record<
-    string,
-    unknown
-  >;
-
   return {
     id: row.id,
     title: row.title,
     author: row.ownerUserId === currentUserId ? "You" : row.ownerUserId ? "Community" : "LinkedIn Agent",
     isMine: row.ownerUserId === currentUserId,
-    shortDescription: row.description ?? String(template.shortDescription ?? ""),
-    longDescription: String(template.longDescription ?? row.description ?? ""),
+    shortDescription: row.description ?? String(row.templateShortDescription ?? ""),
+    longDescription: String(row.templateLongDescription ?? row.description ?? ""),
     visibility: String(row.visibility).toLowerCase(),
-    icon: typeof template.icon === "string" ? template.icon : undefined,
+    icon: row.templateIcon ?? undefined,
     tags: row.tags ?? [],
-    structure: String(template.structure ?? ""),
-    expectedHooks: Array.isArray(template.expectedHooks)
-      ? template.expectedHooks.filter((item): item is string => typeof item === "string")
-      : [],
-    outcome: String(template.outcome ?? ""),
+    structure: String(row.templateStructure ?? ""),
+    expectedHooks: Array.isArray(row.templateExpectedHooks) ? row.templateExpectedHooks.filter((item): item is string => typeof item === "string") : [],
+    outcome: String(row.templateOutcome ?? ""),
     ownerUserId: row.ownerUserId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
@@ -234,14 +230,12 @@ export async function createHookForUser(userId: string, payload: {
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
-      definition: {
-        shortDescription: payload.shortDescription,
-        longDescription: payload.longDescription,
-        icon: payload.icon ?? null,
-        examples: payload.examples ?? [],
-        whenToUse: payload.whenToUse ?? "",
-        psychologicalEffect: payload.psychologicalEffect ?? ""
-      }
+      defShortDescription: payload.shortDescription,
+      defLongDescription: payload.longDescription,
+      defIcon: payload.icon ?? null,
+      defExamples: payload.examples ?? [],
+      defWhenToUse: payload.whenToUse ?? "",
+      defPsychologicalEffect: payload.psychologicalEffect ?? ""
     }
   });
 
@@ -269,14 +263,12 @@ export async function updateHookForUser(userId: string, hookId: string, payload:
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
-      definition: {
-        shortDescription: payload.shortDescription,
-        longDescription: payload.longDescription,
-        icon: payload.icon ?? null,
-        examples: payload.examples ?? [],
-        whenToUse: payload.whenToUse ?? "",
-        psychologicalEffect: payload.psychologicalEffect ?? ""
-      }
+      defShortDescription: payload.shortDescription,
+      defLongDescription: payload.longDescription,
+      defIcon: payload.icon ?? null,
+      defExamples: payload.examples ?? [],
+      defWhenToUse: payload.whenToUse ?? "",
+      defPsychologicalEffect: payload.psychologicalEffect ?? ""
     }
   });
 
@@ -313,14 +305,12 @@ export async function createPostStyleForUser(userId: string, payload: {
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
-      template: {
-        shortDescription: payload.shortDescription,
-        longDescription: payload.longDescription,
-        icon: payload.icon ?? null,
-        structure: payload.structure ?? "",
-        expectedHooks: payload.expectedHooks ?? [],
-        outcome: payload.outcome ?? ""
-      }
+      templateShortDescription: payload.shortDescription,
+      templateLongDescription: payload.longDescription,
+      templateIcon: payload.icon ?? null,
+      templateStructure: payload.structure ?? "",
+      templateExpectedHooks: payload.expectedHooks ?? [],
+      templateOutcome: payload.outcome ?? ""
     }
   });
 
@@ -348,14 +338,12 @@ export async function updatePostStyleForUser(userId: string, postStyleId: string
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
-      template: {
-        shortDescription: payload.shortDescription,
-        longDescription: payload.longDescription,
-        icon: payload.icon ?? null,
-        structure: payload.structure ?? "",
-        expectedHooks: payload.expectedHooks ?? [],
-        outcome: payload.outcome ?? ""
-      }
+      templateShortDescription: payload.shortDescription,
+      templateLongDescription: payload.longDescription,
+      templateIcon: payload.icon ?? null,
+      templateStructure: payload.structure ?? "",
+      templateExpectedHooks: payload.expectedHooks ?? [],
+      templateOutcome: payload.outcome ?? ""
     }
   });
 
