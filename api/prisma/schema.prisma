@@ -160,6 +160,7 @@ model UserSelectedPostStyle {
   id        String   @id @default(cuid())
   userId    String
   styleId   String
+  sendTime  String?  @db.VarChar(5)
   ordering  Int      @default(0)
   createdAt DateTime @default(now())
 

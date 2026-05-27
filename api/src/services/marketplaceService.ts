@@ -104,8 +104,14 @@ function normalizeDaySelections(value: unknown): Record<string, string | null> {
   return result;
 }
 
-async function replaceSelections(userId: string, selectedHookIds: string[], selectedPostStyleIdsByDay: Record<string, string | null>) {
-  const dayOrder = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+const dayOrder = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+
+async function replaceSelections(
+  userId: string,
+  selectedHookIds: string[],
+  selectedPostStyleIdsByDay: Record<string, string | null>,
+  selectedPostStyleSendTimesByDay: Record<string, string | null>
+) {
   const selectedPostStyleEntries = dayOrder.flatMap((dayKey, ordering) => {
     const styleId = selectedPostStyleIdsByDay[dayKey];
     if (typeof styleId !== "string" || styleId.length === 0) return [];
@@ -113,6 +119,7 @@ async function replaceSelections(userId: string, selectedHookIds: string[], sele
     return [{
       userId,
       styleId,
+      sendTime: selectedPostStyleSendTimesByDay[dayKey] ?? null,
       ordering
     }];
   });
@@ -137,7 +144,7 @@ async function replaceSelections(userId: string, selectedHookIds: string[], sele
     if (existingSchedule) {
       await tx.weeklyPostSchedule.update({
         where: { id: existingSchedule.id },
-        data: { schedule: { selectedPostStyleIdsByDay } }
+        data: { schedule: { selectedPostStyleIdsByDay, selectedPostStyleSendTimesByDay } }
       });
       return;
     }
@@ -145,7 +152,7 @@ async function replaceSelections(userId: string, selectedHookIds: string[], sele
     await tx.weeklyPostSchedule.create({
       data: {
         userId,
-        schedule: { selectedPostStyleIdsByDay },
+        schedule: { selectedPostStyleIdsByDay, selectedPostStyleSendTimesByDay },
         cronExpr: null,
         enabled: false
       }
@@ -368,21 +375,30 @@ export async function getMarketplaceSelections(userId: string) {
     orderBy: { ordering: "asc" }
   });
 
-  const schedule = await prisma.weeklyPostSchedule.findFirst({ where: { userId } });
-  const scheduleSelections = normalizeDaySelections(
-    schedule?.schedule && typeof schedule.schedule === "object" ? (schedule.schedule as Record<string, unknown>).selectedPostStyleIdsByDay : null
-  );
+  const selectedPostStyles = await prisma.userSelectedPostStyle.findMany({
+    where: { userId },
+    orderBy: { ordering: "asc" }
+  });
+
+  const selectedPostStyleIdsByDay = Object.fromEntries(
+    dayOrder.map((dayKey, ordering) => [dayKey, selectedPostStyles[ordering]?.styleId ?? null])
+  ) as Record<string, string | null>;
+  const selectedPostStyleSendTimesByDay = Object.fromEntries(
+    dayOrder.map((dayKey, ordering) => [dayKey, selectedPostStyles[ordering]?.sendTime ?? null])
+  ) as Record<string, string | null>;
 
   return {
     selectedHookIds: selectedHooks.map((entry) => entry.hookId),
-    selectedPostStyleIdsByDay: scheduleSelections
+    selectedPostStyleIdsByDay,
+    selectedPostStyleSendTimesByDay
   };
 }
 
 export async function updateMarketplaceSelections(
   userId: string,
   selectedHookIds: string[],
-  selectedPostStyleIdsByDay: Record<string, string | null>
+  selectedPostStyleIdsByDay: Record<string, string | null>,
+  selectedPostStyleSendTimesByDay: Record<string, string | null>
 ) {
   const accessibleHooks = await prisma.marketplaceHook.findMany({ where: { OR: [{ visibility: "PUBLIC" }, { ownerUserId: userId }] } });
   const accessibleHookIds = new Set(accessibleHooks.map((entry) => entry.id));
@@ -396,8 +412,14 @@ export async function updateMarketplaceSelections(
       styleId && accessibleStyleIds.has(styleId) ? styleId : null
     ])
   );
+  const filteredPostStyleSendTimesByDay = Object.fromEntries(
+    Object.entries(selectedPostStyleSendTimesByDay).map(([dayKey, sendTime]) => [
+      dayKey,
+      filteredPostStyleIdsByDay[dayKey] ? sendTime ?? null : null
+    ])
+  );
 
-  await replaceSelections(userId, filteredHookIds, filteredPostStyleIdsByDay);
+  await replaceSelections(userId, filteredHookIds, filteredPostStyleIdsByDay, filteredPostStyleSendTimesByDay);
   return getMarketplaceSelections(userId);
 }
 

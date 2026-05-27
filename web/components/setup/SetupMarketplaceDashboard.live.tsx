@@ -82,6 +82,7 @@ type PostTypeFormState = {
 type MarketplaceSelections = {
   selectedHookIds: string[];
   selectedPostStyleIdsByDay: Record<SetupMarketplaceDayKey, string | null>;
+  selectedPostStyleSendTimesByDay: Record<SetupMarketplaceDayKey, string | null>;
 };
 
 type MarketplaceResponse = {
@@ -111,6 +112,16 @@ type PostTypeResponse = MarketplaceResponse & {
 };
 
 const EMPTY_DAY_SELECTIONS: Record<SetupMarketplaceDayKey, string | null> = {
+  monday: null,
+  tuesday: null,
+  wednesday: null,
+  thursday: null,
+  friday: null,
+  saturday: null,
+  sunday: null
+};
+
+const EMPTY_DAY_SEND_TIMES: Record<SetupMarketplaceDayKey, string | null> = {
   monday: null,
   tuesday: null,
   wednesday: null,
@@ -238,6 +249,8 @@ function MarketplaceDetailPanel({
   kind,
   activeDayLabel,
   selected,
+  sendTime,
+  onSendTimeChange,
   onAdd,
   onEdit,
   onDelete,
@@ -247,6 +260,8 @@ function MarketplaceDetailPanel({
   kind: "hook" | "post-type";
   activeDayLabel?: string;
   selected: boolean;
+  sendTime?: string;
+  onSendTimeChange?: (next: string) => void;
   onAdd: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -303,6 +318,20 @@ function MarketplaceDetailPanel({
         </div>
       ) : (
         <div className="mt-5 grid gap-4">
+          {activeDayLabel && onSendTimeChange ? (
+            <div className="rounded-[1.1rem] border border-[var(--color-soft-border)] bg-white p-4">
+              <p className="m-0 font-semibold text-[var(--color-text)]">Send time</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--color-muted-alt)]">
+                Choose when this post draft should be sent for {activeDayLabel}.
+              </p>
+              <Input
+                type="time"
+                value={sendTime ?? ""}
+                onChange={(event) => onSendTimeChange(event.target.value)}
+                className="mt-3 border-[var(--color-soft-border)] bg-[var(--color-surface-soft)] text-[var(--color-text)]"
+              />
+            </div>
+          ) : null}
           <div>
             <p className="m-0 font-semibold text-[var(--color-text)]">Structure</p>
             <p className="mt-1 text-sm leading-6 text-[var(--color-ink)]">{(item as CatalogPostType).structure}</p>
@@ -600,7 +629,8 @@ function PostTypeForm({
 function buildSelectionState(): MarketplaceSelections {
   return {
     selectedHookIds: [],
-    selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS }
+    selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS },
+    selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES }
   };
 }
 
@@ -677,7 +707,8 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
     setPostStyles(nextPostStyles);
     setSelections({
       selectedHookIds: nextSelections.selectedHookIds ?? [],
-      selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS, ...(nextSelections.selectedPostStyleIdsByDay ?? {}) }
+      selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS, ...(nextSelections.selectedPostStyleIdsByDay ?? {}) },
+      selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES, ...(nextSelections.selectedPostStyleSendTimesByDay ?? {}) }
     });
   }, [fetchJson]);
 
@@ -757,7 +788,8 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
     const payload = (await response.json()) as MarketplaceSelections;
     setSelections({
       selectedHookIds: payload.selectedHookIds ?? [],
-      selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS, ...(payload.selectedPostStyleIdsByDay ?? {}) }
+      selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS, ...(payload.selectedPostStyleIdsByDay ?? {}) },
+      selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES, ...(payload.selectedPostStyleSendTimesByDay ?? {}) }
     });
   }
 
@@ -801,10 +833,26 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
   async function assignPostType(dayKey: SetupMarketplaceDayKey, postTypeId: string) {
     const previousSelections = selections;
     const nextSelection = { ...selections.selectedPostStyleIdsByDay, [dayKey]: postTypeId };
-    setSelections((current) => ({ ...current, selectedPostStyleIdsByDay: nextSelection }));
+    const nextSendTimes = { ...selections.selectedPostStyleSendTimesByDay };
+    const selectedSendTime = nextSendTimes[dayKey];
+
+    if (!selectedSendTime) {
+      setStatusMessage(`Choose a send time for ${selectedDayLabel} before saving.`);
+      return;
+    }
+
+    setSelections((current) => ({
+      ...current,
+      selectedPostStyleIdsByDay: nextSelection,
+      selectedPostStyleSendTimesByDay: nextSendTimes
+    }));
 
     try {
-      await saveSelections({ ...selections, selectedPostStyleIdsByDay: nextSelection });
+      await saveSelections({
+        ...selections,
+        selectedPostStyleIdsByDay: nextSelection,
+        selectedPostStyleSendTimesByDay: nextSendTimes
+      });
       setPanel("post-types");
       setActiveItemId(postTypeId);
       setStatusMessage(`Saved ${selectedDayLabel} schedule item.`);
@@ -819,10 +867,19 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
   async function clearDay(dayKey: SetupMarketplaceDayKey) {
     const previousSelections = selections;
     const nextSelection = { ...selections.selectedPostStyleIdsByDay, [dayKey]: null };
-    setSelections((current) => ({ ...current, selectedPostStyleIdsByDay: nextSelection }));
+    const nextSendTimes = { ...selections.selectedPostStyleSendTimesByDay, [dayKey]: null };
+    setSelections((current) => ({
+      ...current,
+      selectedPostStyleIdsByDay: nextSelection,
+      selectedPostStyleSendTimesByDay: nextSendTimes
+    }));
 
     try {
-      await saveSelections({ ...selections, selectedPostStyleIdsByDay: nextSelection });
+      await saveSelections({
+        ...selections,
+        selectedPostStyleIdsByDay: nextSelection,
+        selectedPostStyleSendTimesByDay: nextSendTimes
+      });
       setStatusMessage(`${SETUP_MARKETPLACE_DAYS.find((day) => day.key === dayKey)?.label ?? dayKey} cleared.`);
     } catch (error) {
       setSelections(previousSelections);
@@ -830,6 +887,16 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
         `Unable to clear ${SETUP_MARKETPLACE_DAYS.find((day) => day.key === dayKey)?.label ?? dayKey}. ${error instanceof Error ? error.message : "Please try again."}`
       );
     }
+  }
+
+  function updateSelectedDaySendTime(dayKey: SetupMarketplaceDayKey, nextSendTime: string) {
+    setSelections((current) => ({
+      ...current,
+      selectedPostStyleSendTimesByDay: {
+        ...current.selectedPostStyleSendTimesByDay,
+        [dayKey]: nextSendTime || null
+      }
+    }));
   }
 
   function startHookCreate() {
@@ -1068,6 +1135,7 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
               const item = selections.selectedPostStyleIdsByDay[key]
                 ? postStyles.find((candidate) => candidate.id === selections.selectedPostStyleIdsByDay[key]) ?? null
                 : null;
+              const sendTime = selections.selectedPostStyleSendTimesByDay[key];
 
               return (
                 <div
@@ -1094,6 +1162,9 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
                         <>
                           <h4 className="mt-2 text-lg text-[var(--color-text)]">{item.title}</h4>
                           <p className="mt-2 text-sm leading-6 text-[var(--color-ink)]">{item.shortDescription}</p>
+                          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-muted-alt)]">
+                            Send time: {sendTime ?? "Not set"}
+                          </p>
                         </>
                       ) : (
                         <p className="mt-2 text-sm leading-6 text-[var(--color-muted-alt)]">Empty container</p>
@@ -1266,6 +1337,8 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
                           kind="post-type"
                           activeDayLabel={selectedDayLabel}
                           selected={selections.selectedPostStyleIdsByDay[selectedDayKey] === activePostStyle.id}
+                          sendTime={selections.selectedPostStyleSendTimesByDay[selectedDayKey] ?? ""}
+                          onSendTimeChange={(nextSendTime) => updateSelectedDaySendTime(selectedDayKey, nextSendTime)}
                           onAdd={() => assignPostType(selectedDayKey, activePostStyle.id)}
                           onEdit={() => startPostTypeEdit(activePostStyle)}
                           onDelete={() => deletePostType(activePostStyle)}
