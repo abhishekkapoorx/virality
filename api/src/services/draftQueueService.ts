@@ -36,10 +36,6 @@ const cronDayMap: Record<string, string> = {
   saturday: "6"
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 export async function resolveDraftDeliveryTargetForUser(userId: string): Promise<{
   tenantId: string;
   telegramUserId: string | null;
@@ -73,20 +69,20 @@ function buildCronExpression(dayKey: string, sendTime: string): string {
 }
 
 async function removeExistingSchedules(userId: string, dayKey?: string) {
-  const repeatableJobs = await draftQueue.getRepeatableJobs();
+  const repeatableJobs = await draftQueue.getJobSchedulers();
   const matchingJobs = repeatableJobs.filter((job) => {
     if (job.name !== "scheduled-draft-generation") {
       return false;
     }
 
-    if (!job.id?.startsWith(`${userId}:`)) {
+    if (!job.id?.startsWith(`schedule:${userId}:`)) {
       return false;
     }
 
     return !dayKey || job.id.includes(`:${dayKey}`);
   });
 
-  await Promise.all(matchingJobs.map((job) => draftQueue.removeRepeatableByKey(job.key)));
+  await Promise.all(matchingJobs.map((job) => draftQueue.removeJobScheduler(job.key)));
 }
 
 export async function enqueueDraftGeneration(payload: DraftQueuePayload) {
@@ -108,29 +104,24 @@ export async function syncDraftScheduleForUser(userId: string) {
     return;
   }
 
-  const schedule = await prisma.weeklyPostSchedule.findFirst({ where: { userId } });
-  if (!schedule || !schedule.enabled) {
+  const scheduleRows = await prisma.userSelectedPostStyle.findMany({
+    where: { userId, sendTime: { not: null } },
+    orderBy: { ordering: "asc" }
+  });
+
+  if (scheduleRows.length === 0) {
     await removeExistingSchedules(userId);
     return;
   }
 
-  const scheduleSelection = isRecord(schedule.schedule) ? schedule.schedule : {};
-  const selectedPostStyleIdsByDay = isRecord(scheduleSelection.selectedPostStyleIdsByDay)
-    ? (scheduleSelection.selectedPostStyleIdsByDay as Record<string, string | null>)
-    : {};
-  const selectedPostStyleSendTimesByDay = isRecord(scheduleSelection.selectedPostStyleSendTimesByDay)
-    ? (scheduleSelection.selectedPostStyleSendTimesByDay as Record<string, string | null>)
-    : {};
-
   await removeExistingSchedules(userId);
 
-  for (const [dayKey, styleId] of Object.entries(selectedPostStyleIdsByDay)) {
-    const sendTime = selectedPostStyleSendTimesByDay[dayKey];
-    if (!styleId || !sendTime) {
+  for (const row of scheduleRows) {
+    if (!row.dayKey || !row.sendTime) {
       continue;
     }
 
-    const cronExpression = buildCronExpression(dayKey, sendTime);
+    const cronExpression = buildCronExpression(row.dayKey, row.sendTime);
     await draftQueue.add(
       "scheduled-draft-generation",
       {
@@ -138,12 +129,13 @@ export async function syncDraftScheduleForUser(userId: string) {
         userId,
         telegramUserId: target.telegramUserId,
         source: "schedule",
-        dayKey
+        dayKey: row.dayKey
       },
       {
-        jobId: `schedule:${userId}:${dayKey}`,
+        jobId: `schedule:${userId}:${row.dayKey}`,
         repeat: {
-          pattern: cronExpression
+          pattern: cronExpression,
+          tz: row.timezone || "UTC"
         }
       }
     );

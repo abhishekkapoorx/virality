@@ -83,6 +83,7 @@ type MarketplaceSelections = {
   selectedHookIds: string[];
   selectedPostStyleIdsByDay: Record<SetupMarketplaceDayKey, string | null>;
   selectedPostStyleSendTimesByDay: Record<SetupMarketplaceDayKey, string | null>;
+  timezone: string;
 };
 
 type MarketplaceResponse = {
@@ -630,7 +631,8 @@ function buildSelectionState(): MarketplaceSelections {
   return {
     selectedHookIds: [],
     selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS },
-    selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES }
+    selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES },
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
   };
 }
 
@@ -708,7 +710,8 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
     setSelections({
       selectedHookIds: nextSelections.selectedHookIds ?? [],
       selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS, ...(nextSelections.selectedPostStyleIdsByDay ?? {}) },
-      selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES, ...(nextSelections.selectedPostStyleSendTimesByDay ?? {}) }
+      selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES, ...(nextSelections.selectedPostStyleSendTimesByDay ?? {}) },
+      timezone: nextSelections.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"
     });
   }, [fetchJson]);
 
@@ -789,7 +792,8 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
     setSelections({
       selectedHookIds: payload.selectedHookIds ?? [],
       selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS, ...(payload.selectedPostStyleIdsByDay ?? {}) },
-      selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES, ...(payload.selectedPostStyleSendTimesByDay ?? {}) }
+      selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES, ...(payload.selectedPostStyleSendTimesByDay ?? {}) },
+      timezone: payload.timezone ?? nextSelections.timezone
     });
   }
 
@@ -889,14 +893,31 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
     }
   }
 
-  function updateSelectedDaySendTime(dayKey: SetupMarketplaceDayKey, nextSendTime: string) {
-    setSelections((current) => ({
-      ...current,
+  async function updateSelectedDaySendTime(dayKey: SetupMarketplaceDayKey, nextSendTime: string) {
+    const previousSelections = selections;
+    const nextSelections = {
+      ...selections,
       selectedPostStyleSendTimesByDay: {
-        ...current.selectedPostStyleSendTimesByDay,
+        ...selections.selectedPostStyleSendTimesByDay,
         [dayKey]: nextSendTime || null
       }
-    }));
+    };
+
+    setSelections(nextSelections);
+
+    if (!nextSelections.selectedPostStyleIdsByDay[dayKey]) {
+      return;
+    }
+
+    try {
+      await saveSelections(nextSelections);
+      setStatusMessage(`Saved ${SETUP_MARKETPLACE_DAYS.find((day) => day.key === dayKey)?.label ?? dayKey} send time.`);
+    } catch (error) {
+      setSelections(previousSelections);
+      setStatusMessage(
+        `Unable to save ${SETUP_MARKETPLACE_DAYS.find((day) => day.key === dayKey)?.label ?? dayKey} send time. ${error instanceof Error ? error.message : "Please try again."}`
+      );
+    }
   }
 
   function startHookCreate() {

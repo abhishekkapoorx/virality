@@ -9,6 +9,7 @@ import { meTelegramRouter } from "./routes/meTelegram.js";
 import { meSetupRouter } from "./routes/meSetup.js";
 import { meMarketplaceRouter } from "./routes/meMarketplace.js";
 import { telegramWebhookRouter } from "./routes/telegramWebhook.js";
+import { internalGeneratedPostsRouter } from "./routes/internalGeneratedPosts.js";
 import { internalWorkflowContextRouter } from "./routes/internalWorkflowContext.js";
 import { meWorkflowContextRouter } from "./routes/meWorkflowContext.js";
 import { resolveUserId } from "./lib/resolveUserId.js";
@@ -70,6 +71,7 @@ app.get("/health/ready", async (_req, res) => {
 });
 
 app.use("/internal/v1", internalWorkflowContextRouter);
+app.use("/internal/v1", internalGeneratedPostsRouter);
 app.use("/v1/integrations/telegram", telegramWebhookRouter);
 
 const meRouter = express.Router();
@@ -131,8 +133,8 @@ app.post("/v1/integrations/slack/commands", async (req, res) => {
   }
 
   if (parsed.data.command !== "/set-repeat") {
-    return res.status(200).json({
-      message: `Command ${parsed.data.command} accepted as placeholder`,
+    return res.status(410).json({
+      error: "Slack commands are no longer supported",
       supportedCommand: "/set-repeat"
     });
   }
@@ -199,10 +201,22 @@ app.post("/v1/inbound", (req, res) => {
     return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
   }
 
-  return res.status(202).json({
-    message: "Inbound event accepted",
-    workflowState: "intake_received"
-  });
+  enqueueDraftGenerationAndWait({
+    tenantId: parsed.data.tenantId,
+    userId: parsed.data.userId,
+    updateRequest: parsed.data.text,
+    source: "manual"
+  })
+    .then((response) => {
+      return res.status(200).json({
+        workflowState: "draft_ready",
+        draft: response
+      });
+    })
+    .catch((error) => {
+      console.error("inbound event failed", error);
+      return res.status(500).json({ error: "Inbound event failed" });
+    });
 });
 
 const port = Number(process.env.PORT || 4000);

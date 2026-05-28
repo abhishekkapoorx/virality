@@ -59,7 +59,8 @@ const timeSelectionSchema = z
 const selectionSchema = z.object({
   selectedHookIds: z.array(z.string()),
   selectedPostStyleIdsByDay: weekdaySelectionSchema,
-  selectedPostStyleSendTimesByDay: timeSelectionSchema
+  selectedPostStyleSendTimesByDay: timeSelectionSchema,
+  timezone: z.string().min(1).default("UTC")
 });
 
 export const meMarketplaceRouter = Router();
@@ -229,7 +230,8 @@ meMarketplaceRouter.put("/marketplace/selections", async (req, res) => {
         userId,
         parsed.data.selectedHookIds,
         parsed.data.selectedPostStyleIdsByDay,
-        parsed.data.selectedPostStyleSendTimesByDay
+        parsed.data.selectedPostStyleSendTimesByDay,
+        parsed.data.timezone
       )
     );
   } catch (error) {

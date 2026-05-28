@@ -13,12 +13,23 @@ export async function persistDraftNode(
 
   try {
     await ctx.draftStore.insertRow({
+      tenantId: state.tenantId,
+      userId: state.userId,
       conversationId: state.conversationId,
       type: state.postType.type,
       hook: state.hookChoice.hook_type,
       draft: state.draftText,
       msgTs: state.slackMessageTs ?? "",
-      imgLink: state.imageStorageUrl ?? ""
+      imgLink: state.imageStorageUrl ?? "",
+      payload: {
+        tenantId: state.tenantId,
+        userId: state.userId,
+        postType: state.postType,
+        hookChoice: state.hookChoice,
+        userFeedback: state.userFeedback ?? null,
+        imagePrompt: state.imagePrompt ?? null,
+        imageUrl: state.imageUrl ?? null
+      }
     });
     return {};
   } catch (err) {

@@ -14,4 +14,5 @@ export * from "./image.stub.js";
 export * from "./storage.js";
 export * from "./storage.stub.js";
 export * from "./draftStore.js";
+export * from "./draftStore.http.js";
 export * from "./draftStore.stub.js";

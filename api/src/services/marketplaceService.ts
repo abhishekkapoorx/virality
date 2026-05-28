@@ -90,7 +90,8 @@ async function replaceSelections(
   userId: string,
   selectedHookIds: string[],
   selectedPostStyleIdsByDay: Record<string, string | null>,
-  selectedPostStyleSendTimesByDay: Record<string, string | null>
+  selectedPostStyleSendTimesByDay: Record<string, string | null>,
+  timezone: string
 ) {
   const selectedPostStyleEntries = dayOrder.flatMap((dayKey, ordering) => {
     const styleId = selectedPostStyleIdsByDay[dayKey];
@@ -98,8 +99,10 @@ async function replaceSelections(
 
     return [{
       userId,
+      dayKey,
       styleId,
       sendTime: selectedPostStyleSendTimesByDay[dayKey] ?? null,
+      timezone,
       ordering
     }];
   });
@@ -119,27 +122,6 @@ async function replaceSelections(
         data: selectedPostStyleEntries
       });
     }
-
-    const existingSchedule = await tx.weeklyPostSchedule.findFirst({ where: { userId } });
-    if (existingSchedule) {
-      await tx.weeklyPostSchedule.update({
-        where: { id: existingSchedule.id },
-        data: {
-          schedule: { selectedPostStyleIdsByDay, selectedPostStyleSendTimesByDay },
-          enabled: selectedPostStyleEntries.length > 0
-        }
-      });
-      return;
-    }
-
-    await tx.weeklyPostSchedule.create({
-      data: {
-        userId,
-        schedule: { selectedPostStyleIdsByDay, selectedPostStyleSendTimesByDay },
-        cronExpr: null,
-        enabled: selectedPostStyleEntries.length > 0
-      }
-    });
   });
 }
 
@@ -367,16 +349,23 @@ export async function getMarketplaceSelections(userId: string) {
   });
 
   const selectedPostStyleIdsByDay = Object.fromEntries(
-    dayOrder.map((dayKey, ordering) => [dayKey, selectedPostStyles[ordering]?.styleId ?? null])
-  ) as Record<string, string | null>;
+    dayOrder.map((dayKey) => [
+      dayKey,
+      selectedPostStyles.find((entry) => entry.dayKey === dayKey)?.styleId ?? null
+    ])
+  );
   const selectedPostStyleSendTimesByDay = Object.fromEntries(
-    dayOrder.map((dayKey, ordering) => [dayKey, selectedPostStyles[ordering]?.sendTime ?? null])
-  ) as Record<string, string | null>;
+    dayOrder.map((dayKey) => [
+      dayKey,
+      selectedPostStyles.find((entry) => entry.dayKey === dayKey)?.sendTime ?? null
+    ])
+  );
 
   return {
     selectedHookIds: selectedHooks.map((entry) => entry.hookId),
     selectedPostStyleIdsByDay,
-    selectedPostStyleSendTimesByDay
+    selectedPostStyleSendTimesByDay,
+    timezone: selectedPostStyles[0]?.timezone ?? "UTC"
   };
 }
 
@@ -384,7 +373,8 @@ export async function updateMarketplaceSelections(
   userId: string,
   selectedHookIds: string[],
   selectedPostStyleIdsByDay: Record<string, string | null>,
-  selectedPostStyleSendTimesByDay: Record<string, string | null>
+  selectedPostStyleSendTimesByDay: Record<string, string | null>,
+  timezone: string
 ) {
   const accessibleHooks = await prisma.marketplaceHook.findMany({ where: { OR: [{ visibility: "PUBLIC" }, { ownerUserId: userId }] } });
   const accessibleHookIds = new Set(accessibleHooks.map((entry) => entry.id));
@@ -405,7 +395,7 @@ export async function updateMarketplaceSelections(
     ])
   );
 
-  await replaceSelections(userId, filteredHookIds, filteredPostStyleIdsByDay, filteredPostStyleSendTimesByDay);
+  await replaceSelections(userId, filteredHookIds, filteredPostStyleIdsByDay, filteredPostStyleSendTimesByDay, timezone || "UTC");
   await syncDraftScheduleForUser(userId);
   return getMarketplaceSelections(userId);
 }

@@ -34,6 +34,7 @@ model User {
   weeklySchedules       WeeklyPostSchedule[]
   selectedPostStyles    UserSelectedPostStyle[]
   selectedHooks         UserSelectedHook[]
+  generatedPosts        GeneratedPost[]
   setupAuditEvents      SetupAuditEvent[]
   marketplacePostStyles MarketplacePostStyle[]
   marketplaceHooks      MarketplaceHook[]
@@ -159,8 +160,10 @@ model MarketplaceHook {
 model UserSelectedPostStyle {
   id        String   @id @default(cuid())
   userId    String
+  dayKey    String   @db.VarChar(16)
   styleId   String
   sendTime  String?  @db.VarChar(5)
+  timezone  String   @default("UTC")
   ordering  Int      @default(0)
   createdAt DateTime @default(now())
 
@@ -168,6 +171,28 @@ model UserSelectedPostStyle {
   style MarketplacePostStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
 
   @@index([styleId])
+  @@index([dayKey])
+  @@unique([userId, dayKey])
+}
+
+model GeneratedPost {
+  id             String   @id @default(cuid())
+  userId         String
+  tenantId       String
+  conversationId String
+  type           String
+  hook           String
+  draft          String   @db.Text
+  imageUrl       String?
+  messageTs      String?
+  payload        Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([tenantId, createdAt])
 }
 
 model UserSelectedHook {

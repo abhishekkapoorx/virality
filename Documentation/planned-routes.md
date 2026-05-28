@@ -54,7 +54,7 @@ Do not implement for new work unless explicitly reviving Slack post-pilot.
 |--------|------|-------|
 | POST | `/v1/integrations/slack/events` | Was Events API |
 | POST | `/v1/integrations/slack/interactions` | Was Block Kit |
-| POST | `/v1/integrations/slack/commands` | Stub may exist in repo |
+| POST | `/v1/integrations/slack/commands` | Legacy only; `/set-repeat` is the only supported command |
 | GET | `/v1/oauth/slack/*` | Was workspace OAuth |
 
 ### 1.4 Clerk webhooks (directory sync)
@@ -140,7 +140,7 @@ Prefer **BullMQ** consumers in `worker/` without public HTTP.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/v1/inbound` | Temporary stub; replace with Telegram-driven canonical inbound |
+| POST | `/v1/inbound` | Internal bootstrap path that queues a draft generation job |
 
 ---
 
@@ -194,5 +194,5 @@ Background jobs (BullMQ / similar): `workflow.generate`, `workflow.deliver-teleg
 - [x] Register Clerk JWT issuer/JWKS in API middleware; map `sub` to `users.clerkUserId`.
 - [x] Register Clerk webhook URL → `/v1/webhooks/clerk` with signing secret (local: ngrok → port 4000; see `Documentation/clerk-local-dev.md`).
 - [x] Align Next.js `middleware.ts` matcher with §2.2 routes (`/workflow` protected; landing + waitlist public).
-- [ ] Replace `/v1/inbound` stub with real Telegram → workflow path.
+- [x] Replace `/v1/inbound` stub with a real draft-generation path.
 - [ ] Publish OpenAPI for `/v1/me/*` and Telegram webhook contracts where stable.

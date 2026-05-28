@@ -1,8 +1,44 @@
-import { Bot, InlineKeyboard, type Context } from "grammy";
+import { Bot, type Context } from "grammy";
 
-import { enqueueDraftGeneration } from "../services/draftQueueService.js";
-import { getUserByTelegramUserId } from "../services/telegramLinkService.js";
-import { redeemTelegramLinkToken } from "../services/telegramLinkService.js";
+export type TelegramHandlerDeps = {
+  enqueueDraftGeneration: (payload: {
+    tenantId: string;
+    userId: string;
+    telegramUserId?: string | null;
+    updateRequest?: string;
+    source: "manual" | "schedule";
+    dayKey?: string;
+  }) => Promise<unknown>;
+  getUserByTelegramUserId: (telegramUserId: string) => Promise<{
+    id: string;
+    tenantId: string;
+  } | null>;
+  redeemTelegramLinkToken: (params: {
+    token: string;
+    telegramUserId: string;
+  }) => Promise<
+    | { status: "linked"; userId: string }
+    | { status: "already-linked"; userId: string }
+    | { status: "invalid" }
+    | { status: "expired" }
+    | { status: "conflict"; userId: string }
+  >;
+};
+
+const defaultDeps: TelegramHandlerDeps = {
+  enqueueDraftGeneration: async (payload) => {
+    const { enqueueDraftGeneration } = await import("../services/draftQueueService.js");
+    return enqueueDraftGeneration(payload);
+  },
+  getUserByTelegramUserId: async (telegramUserId) => {
+    const { getUserByTelegramUserId } = await import("../services/telegramLinkService.js");
+    return getUserByTelegramUserId(telegramUserId);
+  },
+  redeemTelegramLinkToken: async (params) => {
+    const { redeemTelegramLinkToken } = await import("../services/telegramLinkService.js");
+    return redeemTelegramLinkToken(params);
+  }
+};
 
 const WELCOME_TEXT = [
   "Hi — I'm LinkedIn Agent.",
@@ -10,20 +46,17 @@ const WELCOME_TEXT = [
   "Send a rough idea for your next LinkedIn post and I'll draft it for you.",
   "Use the web app to set your voice, schedule, and carousel style.",
   "",
-  "Commands: /help"
+  "Commands: /generate <idea>, /help"
 ].join("\n");
 
 const HELP_TEXT = [
   "Send any message with your post idea.",
   "",
+  "Or use /generate <idea> to explicitly queue a draft.",
+  "",
   "Later you'll get drafts here with Approve / Refine / Reject buttons.",
   "Link your account from the web app to connect this chat to your profile."
 ].join("\n");
-
-const draftActionKeyboard = new InlineKeyboard()
-  .text("Approve", "approve")
-  .text("Refine", "refine")
-  .text("Reject", "reject");
 
 function parseLinkTokenFromStart(args: string): string | null {
   const payload = args.trim();
@@ -31,7 +64,7 @@ function parseLinkTokenFromStart(args: string): string | null {
   return payload.slice("link_".length);
 }
 
-async function onStart(ctx: Context): Promise<void> {
+async function onStart(ctx: Context, deps: TelegramHandlerDeps): Promise<void> {
   const args =
     ctx.message?.text?.replace(/^\/start(?:@\S+)?\s*/i, "").trim() ?? "";
   const linkToken = parseLinkTokenFromStart(args);
@@ -42,7 +75,7 @@ async function onStart(ctx: Context): Promise<void> {
       return;
     }
 
-    const result = await redeemTelegramLinkToken({
+    const result = await deps.redeemTelegramLinkToken({
       token: linkToken,
       telegramUserId: String(telegramUserId)
     });
@@ -83,9 +116,19 @@ async function onStart(ctx: Context): Promise<void> {
   await ctx.reply(WELCOME_TEXT);
 }
 
-async function onTextMessage(ctx: Context): Promise<void> {
+async function onTextMessage(ctx: Context, deps: TelegramHandlerDeps): Promise<void> {
   const text = ctx.message?.text?.trim();
   if (!text || text.startsWith("/")) return;
+
+  await queueDraftFromIdea(ctx, text, deps);
+}
+
+async function queueDraftFromIdea(ctx: Context, idea: string, deps: TelegramHandlerDeps): Promise<void> {
+  const text = idea.trim();
+  if (!text) {
+    await ctx.reply("Add an idea first, then send it again.");
+    return;
+  }
 
   const telegramUserId = ctx.from?.id ? String(ctx.from.id) : null;
   if (!telegramUserId) {
@@ -93,7 +136,7 @@ async function onTextMessage(ctx: Context): Promise<void> {
     return;
   }
 
-  const linkedUser = await getUserByTelegramUserId(telegramUserId);
+  const linkedUser = await deps.getUserByTelegramUserId(telegramUserId);
   if (!linkedUser) {
     await ctx.reply(
       "Link this Telegram account from the web app first, then send your idea again."
@@ -101,7 +144,7 @@ async function onTextMessage(ctx: Context): Promise<void> {
     return;
   }
 
-  await enqueueDraftGeneration({
+  await deps.enqueueDraftGeneration({
     tenantId: linkedUser.tenantId,
     userId: linkedUser.id,
     telegramUserId,
@@ -118,29 +161,42 @@ async function onTextMessage(ctx: Context): Promise<void> {
       "",
       "I’ll send the draft back here as soon as it’s ready."
     ].join("\n"),
-    { reply_markup: draftActionKeyboard }
   );
+}
+
+async function onGenerate(ctx: Context, deps: TelegramHandlerDeps): Promise<void> {
+  const idea = ctx.message?.text?.replace(/^\/generate(?:@\S+)?\s*/i, "") ?? "";
+  const trimmedIdea = idea.trim();
+  if (!trimmedIdea) {
+    await ctx.reply("Use /generate <idea> to queue a draft.");
+    return;
+  }
+
+  await queueDraftFromIdea(ctx, trimmedIdea, deps);
 }
 
 async function onCallbackQuery(ctx: Context): Promise<void> {
   await ctx.answerCallbackQuery({
-    text: "Received — workflow actions coming soon."
+    text: "Use /generate <idea> to queue a new draft."
   });
 
   const data = ctx.callbackQuery?.data;
   if (data && ctx.chat?.id != null) {
     await ctx.api.sendMessage(
       ctx.chat.id,
-      `Action \`${data}\` noted. Full approve/refine flow is not wired yet.`
+      `Action \`${data}\` received.`
     );
   }
 }
 
-export function registerTelegramHandlers(bot: Bot): void {
-  bot.command("start", onStart);
+export function registerTelegramHandlers(bot: Bot, deps: Partial<TelegramHandlerDeps> = {}): void {
+  const resolvedDeps: TelegramHandlerDeps = { ...defaultDeps, ...deps };
+
+  bot.command("start", (ctx) => onStart(ctx, resolvedDeps));
+  bot.command("generate", (ctx) => onGenerate(ctx, resolvedDeps));
   bot.command("help", async (ctx) => {
     await ctx.reply(HELP_TEXT);
   });
-  bot.on("message:text", onTextMessage);
+  bot.on("message:text", (ctx) => onTextMessage(ctx, resolvedDeps));
   bot.on("callback_query:data", onCallbackQuery);
 }
