@@ -10,7 +10,6 @@
     "types": [
       "node"
     ],
-    "baseUrl": ".",
     "paths": {
       "@linkedin-agent/shared": [
         "../packages/shared/src"
