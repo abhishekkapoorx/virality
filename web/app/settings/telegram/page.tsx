@@ -1,8 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { useAuthedApi } from "../../../lib/useAuthedApi";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { NoiseBackground } from "@/components/landing/NoiseBackground";
+import { useAuthedApi } from "@/lib/useAuthedApi";
 
 type TelegramLinkStatus = {
   connected: boolean;
@@ -113,145 +117,160 @@ export default function TelegramSettingsPage() {
   }
 
   return (
-    <main
-      style={{
-        maxWidth: 960,
-        margin: "0 auto",
-        padding: "2rem 1.25rem",
-        display: "grid",
-        gap: "1rem"
-      }}
-    >
-      <section
-        style={{
-          border: "1px solid rgba(148, 163, 184, 0.18)",
-          borderRadius: 20,
-          padding: "1.5rem",
-          background: "linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
-          color: "#e2e8f0"
-        }}
-      >
-        <p style={{ margin: 0, textTransform: "uppercase", letterSpacing: "0.12em", fontSize: 12 }}>
-          Telegram
-        </p>
-        <h1 style={{ margin: "0.5rem 0 0.75rem", fontSize: "2rem" }}>Connect your bot account</h1>
-        <p style={{ margin: 0, color: "#cbd5e1", maxWidth: 680 }}>
-          Generate a short-lived deep link from your Clerk session, then open it in Telegram to bind this chat to your profile.
-          On mobile you can tap the link directly; on desktop you can copy it and open it on your phone.
-        </p>
-      </section>
+    <div className="relative isolate overflow-hidden bg-[var(--color-canvas)] text-stone-900">
+      <NoiseBackground />
 
-      <section
-        style={{
-          border: "1px solid rgba(148, 163, 184, 0.14)",
-          borderRadius: 20,
-          padding: "1.25rem",
-          background: "#0f172a",
-          color: "#e2e8f0",
-          display: "grid",
-          gap: "0.85rem"
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: "1.2rem" }}>Connection status</h2>
-          <p style={{ margin: "0.35rem 0 0", color: "#94a3b8" }}>
-            {loading ? "Loading Telegram link state..." : status?.connected ? "Connected" : "Not connected"}
-          </p>
-        </div>
+      <main className="relative z-10 px-5 py-10 sm:px-8 sm:py-14">
+        <div className="mx-auto grid max-w-6xl gap-6 sm:gap-8">
+          <section className="rounded-3xl border border-stone-200/90 bg-gradient-to-br from-white via-[#f5f0eb] to-[#e8f0ee] p-8 shadow-sm sm:p-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Telegram</p>
+            <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight text-stone-900 sm:text-5xl">
+              Connect your bot account.
+            </h1>
+            <p className="mt-5 max-w-3xl text-base leading-relaxed text-stone-600 sm:text-lg">
+              Generate a short-lived deep link from your Clerk session, then open it in Telegram to bind that chat to your profile.
+              The page uses the same warm surface and soft cards as the landing page so the delivery flow feels native.
+            </p>
+          </section>
 
-        <div style={{ display: "grid", gap: "0.4rem", color: "#cbd5e1" }}>
-          <div>Telegram user id: {status?.telegramUserId ?? "—"}</div>
-          <div>Linked at: {formatTimestamp(status?.telegramLinkedAt ?? null)}</div>
-          <div>Link expires: {expiresAt ? formatTimestamp(expiresAt) : "No active link"}</div>
-        </div>
+          {!isLoaded ? (
+            <Card className="bg-white/80">
+              <p className="text-sm text-stone-600">Loading Telegram link state…</p>
+            </Card>
+          ) : !isSignedIn ? (
+            <Card className="bg-white/80">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Sign in required</p>
+              <h2 className="mt-3 font-display text-2xl font-semibold text-stone-900">Link Telegram after you sign in.</h2>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600">
+                The Telegram connector uses your Clerk session to create a one-time link token and attach your bot chat to the right account.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link
+                  href="/sign-in"
+                  className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-5 py-3 text-sm font-semibold text-stone-50 shadow-sm transition hover:bg-stone-800"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/workflow"
+                  className="inline-flex items-center justify-center rounded-2xl border border-stone-300 bg-white/80 px-5 py-3 text-sm font-semibold text-stone-800 backdrop-blur-sm transition hover:border-stone-400"
+                >
+                  Back to workflow
+                </Link>
+              </div>
+            </Card>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+              <Card className="bg-white/80">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Connection status</p>
+                    <h2 className="mt-3 font-display text-2xl font-semibold text-stone-900">
+                      {loading ? "Checking link state…" : status?.connected ? "Telegram is connected" : "Telegram is not connected"}
+                    </h2>
+                    <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                      {loading
+                        ? "Loading Telegram link state."
+                        : status?.connected
+                          ? "This chat is ready to receive drafts and quick feedback."
+                          : "Create a new deep link to bind Telegram to this account."}
+                    </p>
+                  </div>
 
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={issueLink}
-            disabled={busy}
-            style={{
-              border: 0,
-              borderRadius: 999,
-              padding: "0.8rem 1.1rem",
-              background: "#38bdf8",
-              color: "#082f49",
-              fontWeight: 700,
-              cursor: busy ? "not-allowed" : "pointer"
-            }}
-          >
-            Generate connect link
-          </button>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${status?.connected ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-600"}`}
+                  >
+                    {status?.connected ? "Connected" : "Not connected"}
+                  </span>
+                </div>
 
-          <button
-            type="button"
-            onClick={disconnect}
-            disabled={busy || !status?.connected}
-            style={{
-              border: "1px solid rgba(148, 163, 184, 0.25)",
-              borderRadius: 999,
-              padding: "0.8rem 1.1rem",
-              background: "transparent",
-              color: "#e2e8f0",
-              fontWeight: 600,
-              cursor: busy || !status?.connected ? "not-allowed" : "pointer"
-            }}
-          >
-            Disconnect
-          </button>
-        </div>
+                <div className="mt-6 grid gap-3 rounded-2xl border border-stone-200 bg-white/90 p-4 text-sm text-stone-700">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-stone-500">Telegram user id</span>
+                    <span className="font-medium text-stone-900">{status?.telegramUserId ?? "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-stone-500">Linked at</span>
+                    <span className="font-medium text-stone-900">{formatTimestamp(status?.telegramLinkedAt ?? null)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-stone-500">Link expires</span>
+                    <span className="font-medium text-stone-900">{expiresAt ? formatTimestamp(expiresAt) : "No active link"}</span>
+                  </div>
+                </div>
 
-        {deepLink ? (
-          <div
-            style={{
-              borderRadius: 16,
-              border: "1px solid rgba(56, 189, 248, 0.28)",
-              background: "rgba(8, 47, 73, 0.55)",
-              padding: "1rem",
-              display: "grid",
-              gap: "0.75rem"
-            }}
-          >
-            <div style={{ fontWeight: 700 }}>Connect link</div>
-            <a href={deepLink} target="_blank" rel="noreferrer" style={{ color: "#7dd3fc", wordBreak: "break-all" }}>
-              {deepLink}
-            </a>
-            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-              <button
-                type="button"
-                onClick={copyLink}
-                style={{
-                  border: "1px solid rgba(148, 163, 184, 0.25)",
-                  borderRadius: 999,
-                  padding: "0.7rem 1rem",
-                  background: "transparent",
-                  color: "#e2e8f0",
-                  cursor: "pointer"
-                }}
-              >
-                Copy link
-              </button>
-              <a
-                href={deepLink}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  borderRadius: 999,
-                  padding: "0.7rem 1rem",
-                  background: "#22c55e",
-                  color: "#052e16",
-                  fontWeight: 700,
-                  textDecoration: "none"
-                }}
-              >
-                Open in Telegram
-              </a>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Button type="button" onClick={issueLink} disabled={busy} className="!rounded-2xl !px-6 !py-3.5">
+                    {busy ? "Generating…" : "Generate connect link"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={disconnect}
+                    disabled={busy || !status?.connected}
+                    className="!rounded-2xl !px-6 !py-3.5"
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+
+                {message ? <p className="mt-4 text-sm font-medium text-stone-600">{message}</p> : null}
+
+                {deepLink ? (
+                  <div className="mt-6 rounded-3xl border border-stone-200 bg-gradient-to-br from-white via-[#f5f0eb] to-[#e8f0ee] p-5 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Connect link</p>
+                    <a
+                      href={deepLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 block break-all text-sm font-medium text-stone-800 underline decoration-stone-300 underline-offset-4"
+                    >
+                      {deepLink}
+                    </a>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <Button type="button" variant="outline" onClick={copyLink} className="!rounded-2xl !px-5 !py-3">
+                        Copy link
+                      </Button>
+                      <a
+                        href={deepLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-5 py-3 text-sm font-semibold text-stone-50 shadow-sm transition hover:bg-stone-800"
+                      >
+                        Open in Telegram
+                      </a>
+                    </div>
+                  </div>
+                ) : null}
+              </Card>
+
+              <Card className="bg-white/80">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">How linking works</p>
+                <h2 className="mt-3 font-display text-2xl font-semibold text-stone-900">Fast, explicit, and reversible.</h2>
+                <div className="mt-5 grid gap-3">
+                  {[
+                    "Create a short-lived deep link from this page.",
+                    "Open it in Telegram to bind the chat to your account.",
+                    "Use the same chat to send ideas and receive drafts back."
+                  ].map((item) => (
+                    <div key={item} className="rounded-2xl border border-stone-200 bg-white/90 p-4 text-sm leading-relaxed text-stone-600">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-stone-200 bg-gradient-to-br from-white via-[#f5f0eb] to-[#e8f0ee] p-4">
+                  <p className="text-sm font-semibold text-stone-900">Need a different surface?</p>
+                  <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                    Open <Link href="/settings/profile" className="font-semibold text-stone-800 underline decoration-stone-300 underline-offset-4">profile settings</Link>{" "}
+                    or <Link href="/workflow" className="font-semibold text-stone-800 underline decoration-stone-300 underline-offset-4">workflow</Link> to stay inside the same visual system.
+                  </p>
+                </div>
+              </Card>
             </div>
-          </div>
-        ) : null}
-
-        {message ? <p style={{ margin: 0, color: "#93c5fd" }}>{message}</p> : null}
-      </section>
-    </main>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }

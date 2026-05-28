@@ -6,7 +6,6 @@ import {
 
 import {
   getOrCreateWorkflowContext,
-  toWorkflowContextBundle,
   upsertWorkflowContext
 } from "../services/workflowContextService.js";
 import { getAuth } from "../types/auth.js";
@@ -18,8 +17,7 @@ meWorkflowContextRouter.get("/workflow-context", async (req, res) => {
     const userId = getAuth(req).internalUserId;
     const record = await getOrCreateWorkflowContext(userId);
     return res.json(record);
-  } catch (err) {
-    console.error("GET workflow-context failed", err);
+  } catch {
     return res.status(500).json({ error: "Failed to load workflow context" });
   }
 });
@@ -40,8 +38,7 @@ meWorkflowContextRouter.put("/workflow-context", async (req, res) => {
   try {
     const record = await upsertWorkflowContext(parsed.data);
     return res.json(record);
-  } catch (err) {
-    console.error("PUT workflow-context failed", err);
+  } catch {
     return res.status(500).json({ error: "Failed to save workflow context" });
   }
 });
@@ -59,7 +56,7 @@ meWorkflowContextRouter.get("/workflow-preferences", async (req, res) => {
       updatedAt: record.updatedAt
     };
     return res.json(legacy);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to load preferences" });
   }
 });
@@ -94,7 +91,7 @@ meWorkflowContextRouter.put("/workflow-preferences", async (req, res) => {
       updatedAt: record.updatedAt
     };
     return res.json(legacy);
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to save preferences" });
   }
 });

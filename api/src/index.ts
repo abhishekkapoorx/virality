@@ -2,10 +2,6 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
-import {
-  DELIVERY_CHANNELS,
-  type GenerateDraftResponse
-} from "@linkedin-agent/shared";
 
 import { clerkAuthMiddleware } from "./middleware/clerkAuth.js";
 import { clerkWebhookRouter } from "./routes/clerkWebhook.js";
@@ -17,9 +13,11 @@ import { internalWorkflowContextRouter } from "./routes/internalWorkflowContext.
 import { meWorkflowContextRouter } from "./routes/meWorkflowContext.js";
 import { resolveUserId } from "./lib/resolveUserId.js";
 import {
-  getOrCreateWorkflowContext,
-  upsertWorkflowContext
-} from "./services/workflowContextService.js";
+  enqueueDraftGeneration,
+  enqueueDraftGenerationAndWait,
+  resolveDraftDeliveryTargetForUser
+} from "./services/draftQueueService.js";
+import { getOrCreateWorkflowContext, upsertWorkflowContext } from "./services/workflowContextService.js";
 import { getAuth } from "./types/auth.js";
 
 const app = express();
@@ -98,31 +96,6 @@ const inboundSchema = z.object({
   text: z.string().min(1)
 });
 
-async function buildDraftResponse(
-  userId: string,
-  updateRequest?: string
-): Promise<GenerateDraftResponse> {
-  const record = await getOrCreateWorkflowContext(userId);
-  const usedUpdateRequest = updateRequest?.trim() || null;
-  const updateLine = usedUpdateRequest
-    ? `Requested update: ${usedUpdateRequest}.`
-    : "Requested update: none.";
-
-  return {
-    userId,
-    post: [
-      `Config: ${record.configText.slice(0, 120)}…`,
-      `Style: ${record.styleText.slice(0, 120)}…`,
-      `Schedule: ${record.scheduleText.slice(0, 120)}…`,
-      updateLine,
-      "Draft: This week I focused on shipping repeatable content operations that keep quality high while reducing turnaround time."
-    ].join(" "),
-    carouselArtifactUrl: `https://assets.example.local/carousels/${userId}/latest.png`,
-    targets: DELIVERY_CHANNELS,
-    usedUpdateRequest
-  };
-}
-
 app.post("/v1/me/drafts/generate", clerkAuthMiddleware, async (req, res) => {
   const parsed = generateDraftSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -131,7 +104,20 @@ app.post("/v1/me/drafts/generate", clerkAuthMiddleware, async (req, res) => {
 
   const userId = getAuth(req).internalUserId;
   try {
-    return res.json(await buildDraftResponse(userId, parsed.data.updateRequest));
+    const target = await resolveDraftDeliveryTargetForUser(userId);
+    if (!target) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const response = await enqueueDraftGenerationAndWait({
+      tenantId: target.tenantId,
+      telegramUserId: target.telegramUserId,
+      userId,
+      updateRequest: parsed.data.updateRequest,
+      source: "manual"
+    });
+
+    return res.json(response);
   } catch (err) {
     console.error("draft generate failed", err);
     return res.status(500).json({ error: "Draft generation failed" });
@@ -168,7 +154,7 @@ app.post("/v1/integrations/slack/commands", async (req, res) => {
       userId: updated.userId,
       cronExpression: updated.cronExpression
     });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to update schedule" });
   }
 });
@@ -183,11 +169,26 @@ app.post("/internal/jobs/scheduled-draft-run", async (req, res) => {
 
   const userId = parsed.data.userId ?? resolveUserId(req);
   try {
+    const target = await resolveDraftDeliveryTargetForUser(userId);
+    if (!target) {
+      return res.status(404).json({ error: "User tenant not found" });
+    }
+
+    const job = await enqueueDraftGeneration({
+      tenantId: target.tenantId,
+      telegramUserId: target.telegramUserId,
+      userId,
+      updateRequest: parsed.data.updateRequest,
+      source: "manual"
+    });
+
     return res.status(202).json({
       trigger: "scheduled",
-      ...(await buildDraftResponse(userId, parsed.data.updateRequest))
+      queued: true,
+      jobId: job.id ?? null,
+      userId
     });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Scheduled run failed" });
   }
 });

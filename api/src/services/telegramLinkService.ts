@@ -66,6 +66,18 @@ export async function getTelegramLinkStatus(userId: string): Promise<TelegramLin
   };
 }
 
+export async function getUserByTelegramUserId(telegramUserId: string): Promise<{
+  id: string;
+  tenantId: string;
+} | null> {
+  const user = await prisma.user.findUnique({
+    where: { telegramUserId },
+    select: { id: true, tenantId: true }
+  });
+
+  return user ? { id: user.id, tenantId: user.tenantId } : null;
+}
+
 export async function issueTelegramLinkToken(userId: string): Promise<TelegramLinkTokenRecord> {
   const botUsername = await getTelegramBotUsername();
   if (!botUsername) {

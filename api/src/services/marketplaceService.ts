@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import type { Visibility } from "../generated/prisma/enums.js";
+import { syncDraftScheduleForUser } from "./draftQueueService.js";
 
 function toTextSearchQuery(value?: string | null): string {
   return value?.trim().toLowerCase() ?? "";
@@ -83,27 +84,6 @@ function filterVisiblePostStyle(row: { visibility: string; ownerUserId: string |
   return String(row.visibility) === "PUBLIC" || row.ownerUserId === userId;
 }
 
-function normalizeDaySelections(value: unknown): Record<string, string | null> {
-  const result: Record<string, string | null> = {
-    monday: null,
-    tuesday: null,
-    wednesday: null,
-    thursday: null,
-    friday: null,
-    saturday: null,
-    sunday: null
-  };
-
-  if (!value || typeof value !== "object" || Array.isArray(value)) return result;
-
-  for (const key of Object.keys(result)) {
-    const next = (value as Record<string, unknown>)[key];
-    result[key] = typeof next === "string" && next.length > 0 ? next : null;
-  }
-
-  return result;
-}
-
 const dayOrder = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 
 async function replaceSelections(
@@ -144,7 +124,10 @@ async function replaceSelections(
     if (existingSchedule) {
       await tx.weeklyPostSchedule.update({
         where: { id: existingSchedule.id },
-        data: { schedule: { selectedPostStyleIdsByDay, selectedPostStyleSendTimesByDay } }
+        data: {
+          schedule: { selectedPostStyleIdsByDay, selectedPostStyleSendTimesByDay },
+          enabled: selectedPostStyleEntries.length > 0
+        }
       });
       return;
     }
@@ -154,7 +137,7 @@ async function replaceSelections(
         userId,
         schedule: { selectedPostStyleIdsByDay, selectedPostStyleSendTimesByDay },
         cronExpr: null,
-        enabled: false
+        enabled: selectedPostStyleEntries.length > 0
       }
     });
   });
@@ -163,18 +146,21 @@ async function replaceSelections(
 export async function listHooksForUser(userId: string, query?: string | null) {
   const normalizedQuery = toTextSearchQuery(query);
   const queryTerms = normalizedQuery.length > 0 ? normalizedQuery.split(/\s+/).filter(Boolean) : [];
+  const accessWhere = { OR: [{ visibility: "PUBLIC" as const }, { ownerUserId: userId }] };
   const searchWhere = normalizedQuery
     ? {
         OR: [
-          { title: { contains: normalizedQuery, mode: "insensitive" } },
-          { description: { contains: normalizedQuery, mode: "insensitive" } },
+          { title: { contains: normalizedQuery, mode: "insensitive" as const } },
+          { description: { contains: normalizedQuery, mode: "insensitive" as const } },
           ...(queryTerms.length > 0 ? [{ tags: { hasSome: queryTerms } }] : [])
         ]
       }
     : null;
 
+  const where = searchWhere ? { AND: [accessWhere, searchWhere] } : accessWhere;
+
   const rows = await prisma.marketplaceHook.findMany({
-    where: searchWhere ? ( { AND: [{ OR: [{ visibility: "PUBLIC" }, { ownerUserId: userId }] }, searchWhere] } as any) : { OR: [{ visibility: "PUBLIC" }, { ownerUserId: userId }] },
+    where,
     orderBy: [{ visibility: "desc" }, { createdAt: "desc" }]
   });
 
@@ -420,6 +406,7 @@ export async function updateMarketplaceSelections(
   );
 
   await replaceSelections(userId, filteredHookIds, filteredPostStyleIdsByDay, filteredPostStyleSendTimesByDay);
+  await syncDraftScheduleForUser(userId);
   return getMarketplaceSelections(userId);
 }
 

@@ -1,5 +1,7 @@
 import { Bot, InlineKeyboard, type Context } from "grammy";
 
+import { enqueueDraftGeneration } from "../services/draftQueueService.js";
+import { getUserByTelegramUserId } from "../services/telegramLinkService.js";
 import { redeemTelegramLinkToken } from "../services/telegramLinkService.js";
 
 const WELCOME_TEXT = [
@@ -85,14 +87,36 @@ async function onTextMessage(ctx: Context): Promise<void> {
   const text = ctx.message?.text?.trim();
   if (!text || text.startsWith("/")) return;
 
+  const telegramUserId = ctx.from?.id ? String(ctx.from.id) : null;
+  if (!telegramUserId) {
+    await ctx.reply("I could not read your Telegram user id. Please try again.");
+    return;
+  }
+
+  const linkedUser = await getUserByTelegramUserId(telegramUserId);
+  if (!linkedUser) {
+    await ctx.reply(
+      "Link this Telegram account from the web app first, then send your idea again."
+    );
+    return;
+  }
+
+  await enqueueDraftGeneration({
+    tenantId: linkedUser.tenantId,
+    userId: linkedUser.id,
+    telegramUserId,
+    updateRequest: text,
+    source: "manual"
+  });
+
   const preview = text.length > 400 ? `${text.slice(0, 400)}…` : text;
   await ctx.reply(
     [
-      "Got your idea — intake received.",
+      "Got your idea — generating a draft now.",
       "",
       `> ${preview}`,
       "",
-      "Draft generation from Telegram is next; for now configure style at the web workflow page."
+      "I’ll send the draft back here as soon as it’s ready."
     ].join("\n"),
     { reply_markup: draftActionKeyboard }
   );
