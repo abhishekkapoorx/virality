@@ -75,11 +75,18 @@ async function removeExistingSchedules(userId: string, dayKey?: string) {
       return false;
     }
 
-    if (!job.id?.startsWith(`schedule:${userId}:`)) {
+    // migrate to hyphen-separated ids (colons are disallowed by BullMQ)
+    if (!job.id) return false;
+    const legacyPrefix = `schedule:${userId}:`;
+    const newPrefix = `schedule-${userId}-`;
+
+    if (!(job.id.startsWith(legacyPrefix) || job.id.startsWith(newPrefix))) {
       return false;
     }
 
-    return !dayKey || job.id.includes(`:${dayKey}`);
+    if (!dayKey) return true;
+    // match either legacy or new format
+    return job.id.includes(`:${dayKey}`) || job.id.includes(`-${dayKey}`);
   });
 
   await Promise.all(matchingJobs.map((job) => draftQueue.removeJobScheduler(job.key)));
@@ -87,7 +94,7 @@ async function removeExistingSchedules(userId: string, dayKey?: string) {
 
 export async function enqueueDraftGeneration(payload: DraftQueuePayload) {
   return draftQueue.add("scheduled-draft-generation", payload, {
-    jobId: `${payload.source}:${payload.userId}:${payload.dayKey ?? "manual"}:${Date.now()}`
+    jobId: `${payload.source}-${payload.userId}-${payload.dayKey ?? "manual"}-${Date.now()}`
   });
 }
 
@@ -132,7 +139,7 @@ export async function syncDraftScheduleForUser(userId: string) {
         dayKey: row.dayKey
       },
       {
-        jobId: `schedule:${userId}:${row.dayKey}`,
+        jobId: `schedule-${userId}-${row.dayKey}`,
         repeat: {
           pattern: cronExpression,
           tz: row.timezone || "UTC"

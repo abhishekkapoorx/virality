@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { Worker } from "bullmq";
 import IORedis from "ioredis";
-import { buildGenerateDraftResponse, type WorkflowContextBundle } from "@linkedin-agent/shared";
+import { buildGenerateDraftResponse, type PromptContext } from "@linkedin-agent/shared";
 
 import { createContainer } from "./container.js";
 
@@ -39,7 +39,7 @@ const draftWorker = new Worker<DraftQueuePayload>(
 			tenantId: job.data.tenantId,
 			userId: job.data.userId,
 			userFeedback: job.data.updateRequest
-		})) as WorkflowContextBundle;
+		})) as PromptContext;
 
 		const response = buildGenerateDraftResponse(job.data.userId, context, job.data.updateRequest);
 		if (telegramBotToken && job.data.telegramUserId) {

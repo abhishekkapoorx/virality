@@ -6,10 +6,10 @@ import {
   toWorkflowContextBundle
 } from "../services/workflowContextService.js";
 
-export const internalWorkflowContextRouter = Router();
+export const internalPromptContextRouter = Router();
 
 /** Worker / internal: bundle shape for LangGraph loadContext. */
-internalWorkflowContextRouter.get("/workflow-context", async (req, res) => {
+internalPromptContextRouter.get("/prompt-context", async (req, res) => {
   try {
     const userId = resolveUserId(req);
     const feedback =
@@ -21,7 +21,7 @@ internalWorkflowContextRouter.get("/workflow-context", async (req, res) => {
       toWorkflowContextBundle(record, { userFeedback: feedback })
     );
   } catch (err) {
-    console.error("GET internal workflow-context failed", err);
-    return res.status(500).json({ error: "Failed to load workflow context bundle" });
+    console.error("GET internal prompt-context failed", err);
+    return res.status(500).json({ error: "Failed to load prompt context bundle" });
   }
 });

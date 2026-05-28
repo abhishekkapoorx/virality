@@ -357,13 +357,14 @@ export async function loadSetupBundle(userId: string) {
     where: { userId },
     orderBy: { createdAt: "desc" }
   });
-  const schedule = await prisma.weeklyPostSchedule.findFirst({ where: { userId } });
+  // Load day-row style selections as schedule
+  const selectedPostStyles = await prisma.userSelectedPostStyle.findMany({ where: { userId } });
 
   return {
     profile,
     latestAnswers,
-    schedule,
-    isComplete: Boolean(profile && schedule)
+    schedule: selectedPostStyles,
+    isComplete: Boolean(profile && selectedPostStyles.length > 0)
   };
 }
 

@@ -91,13 +91,6 @@ meSetupRouter.post("/setup/generate", async (req, res) => {
 meSetupRouter.post("/setup/complete", async (req, res) => {
   try {
     const userId = getAuth(req).internalUserId;
-    // create a default (disabled) weekly schedule if none exists
-    const existing = await prisma.weeklyPostSchedule.findFirst({ where: { userId } });
-    if (!existing) {
-      await prisma.weeklyPostSchedule.create({
-        data: { userId, schedule: {}, enabled: false, cronExpr: null }
-      });
-    }
     const bundle = await loadSetupBundle(userId);
     return res.json(bundle);
   } catch (err) {

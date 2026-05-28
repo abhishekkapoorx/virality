@@ -14,14 +14,14 @@ export async function loadContextNode(
         ? state.instructionProfileSnapshot.userFeedback
         : undefined);
 
-    const workflowContext = await ctx.configSource.loadContext({
+    const promptContext = await ctx.configSource.loadContext({
       userId: state.userId,
       tenantId: state.tenantId,
       userFeedback: feedback ?? state.inboundText
     });
 
     return {
-      workflowContext,
+      promptContext,
       transitions: [
         {
           ts: ctx.clock.isoNow(),

@@ -8,8 +8,8 @@ export async function selectPostTypeNode(
   ctx: Container
 ): Promise<Partial<GraphState>> {
   if (state.error) return {};
-  if (!state.workflowContext) {
-    return { error: "workflowContext missing before selectPostType" };
+  if (!state.promptContext) {
+    return { error: "promptContext missing before selectPostType" };
   }
 
   try {
@@ -17,7 +17,7 @@ export async function selectPostTypeNode(
       conversationId: state.conversationId,
       tenantId: state.tenantId,
       userId: state.userId,
-      context: state.workflowContext
+      context: state.promptContext
     });
 
     return {

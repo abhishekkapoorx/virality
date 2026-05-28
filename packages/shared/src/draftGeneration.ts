@@ -1,10 +1,10 @@
-import type { WorkflowContextBundle } from "./prompts/workflowContext.js";
+import type { PromptContext } from "./prompts/promptContext.js";
 
 type DeliveryChannel = "slack" | "web";
 
 export function buildGenerateDraftResponse(
   userId: string,
-  context: WorkflowContextBundle,
+  context: PromptContext,
   updateRequest?: string
 ) {
   const usedUpdateRequest = updateRequest?.trim() || null;

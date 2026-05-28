@@ -10,15 +10,14 @@ import { meSetupRouter } from "./routes/meSetup.js";
 import { meMarketplaceRouter } from "./routes/meMarketplace.js";
 import { telegramWebhookRouter } from "./routes/telegramWebhook.js";
 import { internalGeneratedPostsRouter } from "./routes/internalGeneratedPosts.js";
-import { internalWorkflowContextRouter } from "./routes/internalWorkflowContext.js";
-import { meWorkflowContextRouter } from "./routes/meWorkflowContext.js";
+import { internalPromptContextRouter } from "./routes/internalPromptContext.js";
 import { resolveUserId } from "./lib/resolveUserId.js";
 import {
   enqueueDraftGeneration,
   enqueueDraftGenerationAndWait,
   resolveDraftDeliveryTargetForUser
 } from "./services/draftQueueService.js";
-import { getOrCreateWorkflowContext, upsertWorkflowContext } from "./services/workflowContextService.js";
+// workflow-context service and routes removed — using new prompt-context endpoint instead
 import { getAuth } from "./types/auth.js";
 
 const app = express();
@@ -70,13 +69,12 @@ app.get("/health/ready", async (_req, res) => {
   });
 });
 
-app.use("/internal/v1", internalWorkflowContextRouter);
+app.use("/internal/v1", internalPromptContextRouter);
 app.use("/internal/v1", internalGeneratedPostsRouter);
 app.use("/v1/integrations/telegram", telegramWebhookRouter);
 
 const meRouter = express.Router();
 meRouter.use(clerkAuthMiddleware);
-meRouter.use(meWorkflowContextRouter);
 meRouter.use(meTelegramRouter);
 meRouter.use(meMarketplaceRouter);
 meRouter.use(meSetupRouter);
@@ -144,21 +142,9 @@ app.post("/v1/integrations/slack/commands", async (req, res) => {
     return res.status(400).json({ error: "Missing cron expression. Usage: /set-repeat <cron>" });
   }
 
-  try {
-    const current = await getOrCreateWorkflowContext(parsed.data.user_id);
-    const updated = await upsertWorkflowContext({
-      ...current,
-      cronExpression
-    });
-
-    return res.status(200).json({
-      message: "Repeat schedule updated",
-      userId: updated.userId,
-      cronExpression: updated.cronExpression
-    });
-  } catch {
-    return res.status(500).json({ error: "Failed to update schedule" });
-  }
+  return res.status(410).json({
+    error: "Slack commands are no longer supported"
+  });
 });
 
 app.post("/internal/jobs/scheduled-draft-run", async (req, res) => {

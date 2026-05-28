@@ -31,7 +31,6 @@ model User {
   telegramLinkTokens    TelegramLinkToken[]
   setupAnswers          UserSetupAnswer[]
   setupProfile          UserSetupProfile?
-  weeklySchedules       WeeklyPostSchedule[]
   selectedPostStyles    UserSelectedPostStyle[]
   selectedHooks         UserSelectedHook[]
   generatedPosts        GeneratedPost[]
@@ -42,17 +41,6 @@ model User {
 
 /// Replaces n8n Google Docs (LinkedIn_Config, Style_Guide, Weekly_Post_Schedule, Content_Hook_System).
 /// One row per user; edited via web UI until Clerk supplies real user ids.
-model UserWorkflowContext {
-  userId                 String   @id
-  configText             String   @default("") @db.Text
-  styleText              String   @default("") @db.Text
-  scheduleText           String   @default("") @db.Text
-  hookSystemText         String   @default("") @db.Text
-  carouselDesignLanguage String   @default("")
-  cronExpression         String   @default("0 9 * * 1")
-  updatedAt              DateTime @updatedAt
-  createdAt              DateTime @default(now())
-}
 
 model TelegramLinkToken {
   id         String    @id @default(cuid())
@@ -101,19 +89,6 @@ model UserSetupProfile {
   @@index([userId])
 }
 
-model WeeklyPostSchedule {
-  id        String   @id @default(cuid())
-  userId    String
-  schedule  Json // human-friendly grid + derived cron
-  cronExpr  String?
-  enabled   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
 
 model MarketplacePostStyle {
   id                       String                  @id @default(cuid())

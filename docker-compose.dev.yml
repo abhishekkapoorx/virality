@@ -97,6 +97,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: ${WORKER_PORT:-4010}
+      API_URL: http://api:4000
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-linkedin_agent}
       REDIS_URL: redis://redis:6379
     ports:

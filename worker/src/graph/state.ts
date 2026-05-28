@@ -21,7 +21,7 @@ export const AuditEventSchema = z.object({
 });
 export type AuditEvent = z.infer<typeof AuditEventSchema>;
 
-export const WorkflowContextSchema = z.object({
+export const PromptContextSchema = z.object({
   configText: z.string(),
   styleText: z.string(),
   scheduleText: z.string(),
@@ -29,7 +29,7 @@ export const WorkflowContextSchema = z.object({
   todayDay: z.string(),
   userFeedback: z.string()
 });
-export type WorkflowContext = z.infer<typeof WorkflowContextSchema>;
+export type PromptContext = z.infer<typeof PromptContextSchema>;
 
 export const GraphStateSchema = z.object({
   conversationId: z.string().min(1),
@@ -37,9 +37,9 @@ export const GraphStateSchema = z.object({
   userId: z.string().min(1),
   inboundText: z.string().min(1),
   userFeedback: z.string().optional(),
-  /** @deprecated Use workflowContext; kept for API compatibility. */
+  /** @deprecated Use promptContext; kept for API compatibility. */
   instructionProfileSnapshot: z.record(z.string(), z.unknown()).optional(),
-  workflowContext: WorkflowContextSchema.optional(),
+  promptContext: PromptContextSchema.optional(),
   postType: PostTypeSelectionSchema.optional(),
   hookChoice: HookSelectionSchema.optional(),
   draftText: z.string().optional(),
@@ -60,7 +60,7 @@ export const GraphAnnotation = Annotation.Root({
   inboundText: Annotation<string>,
   userFeedback: Annotation<string | undefined>,
   instructionProfileSnapshot: Annotation<Record<string, unknown> | undefined>,
-  workflowContext: Annotation<WorkflowContext | undefined>,
+  promptContext: Annotation<PromptContext | undefined>,
   postType: Annotation<GraphState["postType"]>,
   hookChoice: Annotation<GraphState["hookChoice"]>,
   draftText: Annotation<string | undefined>,
