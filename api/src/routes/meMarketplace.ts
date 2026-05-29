@@ -225,6 +225,8 @@ meMarketplaceRouter.put("/marketplace/selections", async (req, res) => {
 
   try {
     const userId = getAuth(req).internalUserId;
+    // Debug: log incoming timezone for troubleshooting
+    console.info(`PUT /me/marketplace/selections user=${userId} timezone=${parsed.data.timezone}`);
     return res.json(
       await updateMarketplaceSelections(
         userId,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -658,6 +658,7 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
   const [editingPostTypeId, setEditingPostTypeId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const autoSavedTzRef = useRef(false);
 
   const scheduleSummary = schedule?.enabled
     ? `Enabled · ${schedule.cronExpr ?? "custom schedule"}`
@@ -707,12 +708,34 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
 
     setHooks(nextHooks);
     setPostStyles(nextPostStyles);
+
+    const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     setSelections({
       selectedHookIds: nextSelections.selectedHookIds ?? [],
       selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS, ...(nextSelections.selectedPostStyleIdsByDay ?? {}) },
       selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES, ...(nextSelections.selectedPostStyleSendTimesByDay ?? {}) },
-      timezone: nextSelections.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"
+      timezone: nextSelections.timezone ?? clientTz
     });
+
+    // If the server returned UTC (default) but the client has a non-UTC timezone
+    // and there are scheduled post styles, auto-save the client's timezone so
+    // the server persists an IANA timezone for scheduling.
+    try {
+      const hasScheduled = Object.values(nextSelections.selectedPostStyleIdsByDay ?? {}).some((v) => !!v);
+      if (nextSelections.timezone === "UTC" && clientTz !== "UTC" && hasScheduled && !autoSavedTzRef.current) {
+        autoSavedTzRef.current = true;
+        await saveSelections({
+          selectedHookIds: nextSelections.selectedHookIds ?? [],
+          selectedPostStyleIdsByDay: { ...EMPTY_DAY_SELECTIONS, ...(nextSelections.selectedPostStyleIdsByDay ?? {}) },
+          selectedPostStyleSendTimesByDay: { ...EMPTY_DAY_SEND_TIMES, ...(nextSelections.selectedPostStyleSendTimesByDay ?? {}) },
+          timezone: clientTz
+        });
+        setStatusMessage("Updated schedule timezone to your local timezone.");
+      }
+    } catch (err) {
+      // Non-fatal; preserve current selections and continue.
+      console.warn("Auto-save timezone failed", err);
+    }
   }, [fetchJson]);
 
   useEffect(() => {
@@ -779,9 +802,16 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
   }
 
   async function saveSelections(nextSelections: MarketplaceSelections) {
+    const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const hasScheduled = Object.values(nextSelections.selectedPostStyleIdsByDay ?? {}).some((v) => !!v);
+    const timezoneToSend =
+      nextSelections.timezone && nextSelections.timezone !== "UTC" ? nextSelections.timezone : hasScheduled ? clientTz : nextSelections.timezone ?? clientTz;
+
+    const requestPayload = { ...nextSelections, timezone: timezoneToSend };
+
     const response = await fetchWithAuth("/v1/me/marketplace/selections", {
       method: "PUT",
-      body: JSON.stringify(nextSelections)
+      body: JSON.stringify(requestPayload)
     });
 
     if (!response.ok) {

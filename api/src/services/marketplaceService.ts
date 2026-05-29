@@ -93,19 +93,53 @@ async function replaceSelections(
   selectedPostStyleSendTimesByDay: Record<string, string | null>,
   timezone: string
 ) {
+  function normalizeTimezone(tz: string | null | undefined): string {
+    if (!tz) return "UTC";
+    const trimmed = String(tz).trim();
+    if (!trimmed) return "UTC";
+    const upper = trimmed.toUpperCase();
+    const alias: Record<string, string> = {
+      IST: "Asia/Kolkata",
+      'ASIA/KOLKATA': "Asia/Kolkata",
+      GMT: "UTC",
+      UTC: "UTC",
+      PST: "America/Los_Angeles",
+      PDT: "America/Los_Angeles",
+      EST: "America/New_York",
+      EDT: "America/New_York",
+      CET: "Europe/Paris",
+      BST: "Europe/London"
+    };
+
+    if (alias[upper]) return alias[upper];
+
+    // If already IANA-like (contains a slash), return as-is
+    if (trimmed.includes("/")) return trimmed;
+
+    // Fallback to UTC
+    return "UTC";
+  }
+
+  const normalizedTimezone = normalizeTimezone(timezone);
+
   const selectedPostStyleEntries = dayOrder.flatMap((dayKey, ordering) => {
     const styleId = selectedPostStyleIdsByDay[dayKey];
     if (typeof styleId !== "string" || styleId.length === 0) return [];
 
-    return [{
-      userId,
-      dayKey,
-      styleId,
-      sendTime: selectedPostStyleSendTimesByDay[dayKey] ?? null,
-      timezone,
-      ordering
-    }];
+    return [
+      {
+        userId,
+        dayKey,
+        styleId,
+        sendTime: selectedPostStyleSendTimesByDay[dayKey] ?? null,
+        timezone: normalizedTimezone,
+        ordering
+      }
+    ];
   });
+
+  // Debug: log normalized timezone and entries
+  console.info(`replaceSelections: user=${userId} normalizedTimezone=${normalizedTimezone} entries=${JSON.stringify(selectedPostStyleEntries)}`);
 
   await prisma.$transaction(async (tx) => {
     await tx.userSelectedHook.deleteMany({ where: { userId } });

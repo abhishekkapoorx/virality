@@ -848,6 +848,9 @@ export default function SetupPage() {
             </Card>
           ) : null}
 
+          {/* Show marketplace dashboard when profile exists so users can configure hooks and schedule before completing setup */}
+          {profile ? <SetupMarketplaceDashboard schedule={bundle?.schedule ?? null} /> : null}
+
           {profileSummarySection}
 
           {editableDetailedDocs ? (
