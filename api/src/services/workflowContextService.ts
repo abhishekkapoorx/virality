@@ -6,17 +6,69 @@ import { prisma } from "../lib/prisma.js";
  */
 export async function getOrCreateWorkflowContext(userId: string) {
   // Build a minimal record-like object from available tables
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: { setupProfile: true } });
-  const profileText = user?.setupProfile?.detailedDocs ? JSON.stringify(user.setupProfile.detailedDocs) : "";
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      setupProfile: true,
+      selectedPostStyles: { include: { style: true } },
+      selectedHooks: { include: { hook: true } }
+    }
+  });
+  const profile = user?.setupProfile;
+
+  // Build readable summaries from structured profile fields so the worker
+  // receives human-friendly context for post generation.
+  const industry = profile?.industry ?? "";
+  const icps = Array.isArray(profile?.icps) ? profile!.icps.join(", ") : "";
+  const writingStyle = profile?.writingStyle ?? "";
+  const brandVoice = profile?.brandVoice ?? "";
+  const personalizationNotes = profile?.personalizationNotes ?? "";
+  const exampleAngles = profile?.exampleAngles ? JSON.stringify(profile.exampleAngles) : "";
+  const postConstraints = profile?.postConstraints ? JSON.stringify(profile.postConstraints) : "";
+  const detailedDocs = profile?.detailedDocs ? JSON.stringify(profile.detailedDocs) : "";
+
+  const configText = [
+    industry && `Industry: ${industry}`,
+    icps && `ICP: ${icps}`,
+    personalizationNotes && `Personalization: ${personalizationNotes}`,
+    detailedDocs && `DetailedDocs: ${detailedDocs}`
+  ]
+    .filter(Boolean)
+    .join("\\n");
+
+  const styleText = [
+    writingStyle && `WritingStyle: ${writingStyle}`,
+    brandVoice && `BrandVoice: ${brandVoice}`,
+    exampleAngles && `ExampleAngles: ${exampleAngles}`,
+    postConstraints && `PostConstraints: ${postConstraints}`
+  ]
+    .filter(Boolean)
+    .join("\\n");
+
+  // Build schedule summary from selected post styles (day rows)
+  const selectedStyles = user?.selectedPostStyles ?? [];
+  const scheduleLines = selectedStyles.map((s) => {
+    const title = s.style?.title ?? s.styleId;
+    const when = s.sendTime ? `${s.sendTime} (${s.timezone ?? "UTC"})` : "unscheduled";
+    return `${s.dayKey}: ${title} at ${when}`;
+  });
+  const scheduleText = scheduleLines.join("\\n");
+
+  // Build hook system summary from selected hooks
+  const selectedHooks = user?.selectedHooks ?? [];
+  const hookLines = selectedHooks.map((h) => {
+    const title = h.hook?.title ?? h.hookId;
+    const desc = h.hook?.description ?? "";
+    return desc ? `${title}: ${desc}` : title;
+  });
+  const hookSystemText = hookLines.join("\\n");
 
   return {
     userId,
-    configText: profileText,
-    styleText: "",
-    scheduleText: "",
-    hookSystemText: "",
-    carouselDesignLanguage: "",
-    cronExpression: "",
+    configText,
+    styleText,
+    scheduleText,
+    hookSystemText,
     updatedAt: new Date().toISOString()
   };
 }
@@ -34,7 +86,8 @@ export function toWorkflowContextBundle(record: any, opts: { userFeedback?: stri
     scheduleText: record?.scheduleText ?? "",
     hookSystemText: record?.hookSystemText ?? "",
     todayDay,
-    userFeedback: opts.userFeedback ?? ""
+    userFeedback: opts.userFeedback ?? "",
+    updatedAt: record?.updatedAt ?? ""
   };
 }
 

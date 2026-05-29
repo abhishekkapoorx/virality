@@ -4,6 +4,7 @@ import IORedis from "ioredis";
 import { buildGenerateDraftResponse, type PromptContext } from "@linkedin-agent/shared";
 
 import { createContainer } from "./container.js";
+import { buildGraph } from "./graph/index.js";
 
 type DraftQueuePayload = {
 	tenantId: string;
@@ -28,6 +29,7 @@ if (!telegramBotToken) {
 }
 
 const workerContainer = createContainer();
+const graph = buildGraph(workerContainer);
 const redisConnection = new IORedis(redisUrl, {
 	maxRetriesPerRequest: null
 });
@@ -41,7 +43,13 @@ const draftWorker = new Worker<DraftQueuePayload>(
 			userFeedback: job.data.updateRequest
 		})) as PromptContext;
 
-		const response = buildGenerateDraftResponse(job.data.userId, context, job.data.updateRequest);
+		const response = await buildGenerateDraftResponse(
+			job.data.userId,
+			context,
+			job.data.updateRequest,
+			graph,
+			job.data.tenantId
+		);
 		if (telegramBotToken && job.data.telegramUserId) {
 			const telegramMessage = [
 				"Your draft is ready.",

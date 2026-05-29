@@ -93,7 +93,7 @@ services:
       target: development
     container_name: linkedin-agent-worker-dev
     env_file:
-      - ./worker/.env.example
+      - ./worker/.env
     environment:
       NODE_ENV: development
       PORT: ${WORKER_PORT:-4010}

@@ -1,5 +1,6 @@
 export * from "./llm.js";
 export * from "./llm.stub.js";
+export * from "./llm.groq.js";
 export * from "./slack.js";
 export * from "./slack.stub.js";
 export * from "./telegram.js";

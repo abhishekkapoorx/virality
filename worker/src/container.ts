@@ -6,6 +6,7 @@ import {
   HttpConfigSourceAdapter,
   ImageStub,
   LlmStub,
+  GroqLlmAdapter,
   SlackStub,
   StorageStub,
   type Clock,
@@ -58,7 +59,7 @@ function createDraftStore(
 
 export function createContainer(overrides: Partial<Container> = {}): Container {
   return {
-    llm: overrides.llm ?? new LlmStub(),
+    llm: overrides.llm ?? new GroqLlmAdapter(),
     slack: overrides.slack ?? new SlackStub(),
     clock: overrides.clock ?? new ClockStub(),
     configSource: createConfigSource(overrides),

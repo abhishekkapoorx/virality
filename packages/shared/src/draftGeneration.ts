@@ -2,29 +2,72 @@ import type { PromptContext } from "./prompts/promptContext.js";
 
 type DeliveryChannel = "slack" | "web";
 
-export function buildGenerateDraftResponse(
+function summarizeContext(text: string, maxLength: number = 120): string {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (!compact) {
+    return "";
+  }
+
+  if (compact.length <= maxLength) {
+    return compact;
+  }
+
+  return `${compact.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function chooseDraftTopic(context: PromptContext, updateRequest?: string): string {
+  const requested = updateRequest?.trim();
+  if (requested) {
+    return requested.replace(/[.]+$/, "");
+  }
+
+  const sourceText = [
+    context.configText,
+    context.styleText,
+    context.scheduleText,
+    context.hookSystemText
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if (sourceText.includes("ai agent")) {
+    return "the future of AI agents";
+  }
+
+  if (sourceText.includes("workflow") || sourceText.includes("system")) {
+    return "repeatable content systems";
+  }
+
+  return "building a sharper content cadence";
+}
+
+export async function buildGenerateDraftResponse(
   userId: string,
   context: PromptContext,
-  updateRequest?: string
+  updateRequest: string | undefined,
+  graph: any,
+  tenantId: string = "tenant-1"
 ) {
-  const usedUpdateRequest = updateRequest?.trim() || null;
-  const updateLine = usedUpdateRequest
-    ? `Requested update: ${usedUpdateRequest}.`
-    : "Requested update: none.";
+  const finalState = await graph.invoke({
+    conversationId: `draft-${userId}-${Date.now()}`,
+    tenantId,
+    userId,
+    inboundText: updateRequest || "generate draft",
+    userFeedback: updateRequest,
+    transitions: []
+  });
+
+  if (finalState.error) {
+    throw new Error(`Graph execution failed: ${finalState.error}`);
+  }
 
   const targets: DeliveryChannel[] = ["slack", "web"];
 
   return {
     userId,
-    post: [
-      `Config: ${context.configText.slice(0, 120)}…`,
-      `Style: ${context.styleText.slice(0, 120)}…`,
-      `Schedule: ${context.scheduleText.slice(0, 120)}…`,
-      updateLine,
-      "Draft: This week I focused on shipping repeatable content operations that keep quality high while reducing turnaround time."
-    ].join(" "),
-    carouselArtifactUrl: `https://assets.example.local/carousels/${userId}/latest.png`,
+    post: finalState.draftText || "",
+    carouselArtifactUrl: finalState.imageStorageUrl || finalState.imageUrl || "",
     targets,
-    usedUpdateRequest
+    usedUpdateRequest: updateRequest?.trim() || null
   };
 }
