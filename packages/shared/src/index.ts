@@ -19,9 +19,9 @@ export interface HealthResponse {
   timestamp: string;
 }
 
-export type DeliveryChannel = "slack" | "web";
+export type DeliveryChannel = "telegram" | "web";
 
-export const DELIVERY_CHANNELS: DeliveryChannel[] = ["slack", "web"];
+export const DELIVERY_CHANNELS: DeliveryChannel[] = ["telegram", "web"];
 
 export interface WorkflowPreferences {
   writingStyle: string;

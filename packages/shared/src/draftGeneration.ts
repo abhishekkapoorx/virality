@@ -1,6 +1,45 @@
 import type { PromptContext } from "./prompts/promptContext.js";
 
-type DeliveryChannel = "slack" | "web";
+type DeliveryChannel = "telegram" | "web";
+
+function extractDraftContent(rawDraft: string): string {
+  const trimmed = rawDraft.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const candidate = fencedMatch ? fencedMatch[1].trim() : trimmed;
+
+  const jsonStart = candidate.indexOf("{");
+  const jsonEnd = candidate.lastIndexOf("}");
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+    try {
+      const parsed = JSON.parse(candidate.slice(jsonStart, jsonEnd + 1)) as {
+        draft?: unknown;
+      };
+
+      if (typeof parsed.draft === "string") {
+        return parsed.draft.trim();
+      }
+    } catch {
+      // Fall through to the plain-text cleanup below.
+    }
+  }
+
+  if (candidate.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(candidate) as { draft?: unknown };
+      if (typeof parsed.draft === "string") {
+        return parsed.draft.trim();
+      }
+    } catch {
+      // Fall through to returning the original text.
+    }
+  }
+
+  return candidate;
+}
 
 function summarizeContext(text: string, maxLength: number = 120): string {
   const compact = text.replace(/\s+/g, " ").trim();
@@ -61,11 +100,12 @@ export async function buildGenerateDraftResponse(
     throw new Error(`Graph execution failed: ${finalState.error}`);
   }
 
-  const targets: DeliveryChannel[] = ["slack", "web"];
+  const targets: DeliveryChannel[] = ["telegram", "web"];
+  const post = extractDraftContent(finalState.draftText || "");
 
   return {
     userId,
-    post: finalState.draftText || "",
+    post,
     carouselArtifactUrl: finalState.imageStorageUrl || finalState.imageUrl || "",
     targets,
     usedUpdateRequest: updateRequest?.trim() || null
