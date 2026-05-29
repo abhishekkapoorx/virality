@@ -835,9 +835,6 @@ export default function SetupPage() {
             <Card className="mt-4">
               <h2 style={{ marginTop: 0 }}>Generated profile</h2>
               <p style={{ color: "var(--color-ink)" }}>Version {profile.version}</p>
-              <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-                {JSON.stringify(profile.profile, null, 2)}
-              </pre>
 
               <div style={{ marginTop: 14 }}>
                 <Button
