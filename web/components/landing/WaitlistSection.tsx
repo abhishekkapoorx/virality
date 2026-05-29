@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -57,21 +58,19 @@ export function WaitlistSection() {
 
         <form
           onSubmit={onSubmit}
-          className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row"
+          className="mx-auto mt-10 grid max-w-md gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
         >
-          <label htmlFor="waitlist-email" className="sr-only">
-            Email address
-          </label>
-          <input
-            id="waitlist-email"
+          <Input
             type="email"
             required
             autoComplete="email"
+            label="Email address"
+            labelClassName="text-stone-300"
             placeholder="you@company.com"
             value={email}
             disabled={status === "loading" || status === "success"}
             onChange={(e) => setEmail(e.target.value)}
-            className="min-w-0 flex-1 rounded-2xl border border-stone-700 bg-stone-800 px-4 py-3.5 text-stone-50 placeholder:text-stone-500 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-600/40 disabled:opacity-60"
+            className="min-w-0 rounded-2xl border border-stone-700 bg-stone-800 px-4 py-3.5 text-stone-50 placeholder:text-stone-500 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-600/40 disabled:opacity-60"
           />
           <Button
             type="submit"

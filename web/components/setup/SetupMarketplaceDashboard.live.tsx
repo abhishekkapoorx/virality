@@ -326,6 +326,7 @@ function MarketplaceDetailPanel({
                 Choose when this post draft should be sent for {activeDayLabel}.
               </p>
               <Input
+                label="Send time"
                 type="time"
                 value={sendTime ?? ""}
                 onChange={(event) => onSendTimeChange(event.target.value)}
@@ -412,11 +413,13 @@ function HookForm({
                 value.longDescription === DEFAULT_HOOK_TEMPLATE ? createHookLongDescriptionTemplate(title) : value.longDescription
             });
           }}
+          label="Title"
           placeholder="Title"
           className="border-[var(--color-soft-border)] bg-white text-[var(--color-text)]"
         />
 
         <Input
+          label="Short description"
           value={value.shortDescription}
           onChange={(event) => onChange({ ...value, shortDescription: event.target.value })}
           placeholder="Short description"
@@ -424,6 +427,7 @@ function HookForm({
         />
 
         <Input
+          label="Long description"
           textarea
           value={value.longDescription}
           onChange={(event) => onChange({ ...value, longDescription: event.target.value })}
@@ -530,6 +534,7 @@ function PostTypeForm({
 
       <div className="mt-4 grid gap-3">
         <Input
+          label="Title"
           value={value.title}
           onChange={(event) => {
             const title = event.target.value;
@@ -545,6 +550,7 @@ function PostTypeForm({
         />
 
         <Input
+          label="Short description"
           value={value.shortDescription}
           onChange={(event) => onChange({ ...value, shortDescription: event.target.value })}
           placeholder="Short description"
@@ -552,6 +558,7 @@ function PostTypeForm({
         />
 
         <Input
+          label="Long description"
           textarea
           value={value.longDescription}
           onChange={(event) => onChange({ ...value, longDescription: event.target.value })}
@@ -561,13 +568,14 @@ function PostTypeForm({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Input
+            label="Optional icon name"
             value={value.icon}
             onChange={(event) => onChange({ ...value, icon: event.target.value })}
             placeholder="Optional icon name"
             className="border-[var(--color-soft-border)] bg-white text-[var(--color-text)]"
           />
           <Input
-            value={value.tags}
+            label="Tags, comma separated"
             onChange={(event) => onChange({ ...value, tags: event.target.value })}
             placeholder="Tags, comma separated"
             className="border-[var(--color-soft-border)] bg-white text-[var(--color-text)]"
@@ -575,6 +583,7 @@ function PostTypeForm({
         </div>
 
         <Input
+          label="Structure"
           textarea
           value={value.structure}
           onChange={(event) => onChange({ ...value, structure: event.target.value })}
@@ -583,6 +592,7 @@ function PostTypeForm({
         />
 
         <Input
+          label="Expected hooks"
           textarea
           value={value.expectedHooks}
           onChange={(event) => onChange({ ...value, expectedHooks: event.target.value })}
@@ -591,6 +601,7 @@ function PostTypeForm({
         />
 
         <Input
+          label="Expected outcome"
           textarea
           value={value.outcome}
           onChange={(event) => onChange({ ...value, outcome: event.target.value })}
@@ -1278,6 +1289,7 @@ export function SetupMarketplaceDashboard({ schedule }: SetupMarketplaceDashboar
               <div className="grid gap-6 px-5 py-5 lg:grid-cols-12">
                 <div className="lg:col-span-12">
                   <Input
+                    label={`Search ${panel === "hooks" ? "hooks" : "post types"}`}
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder={`Search ${panel === "hooks" ? "hooks" : "post types"}`}
