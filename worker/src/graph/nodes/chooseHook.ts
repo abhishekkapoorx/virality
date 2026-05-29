@@ -8,8 +8,8 @@ export async function chooseHookNode(
   ctx: Container
 ): Promise<Partial<GraphState>> {
   if (state.error) return {};
-  if (!state.workflowContext || !state.postType) {
-    return { error: "workflowContext or postType missing before chooseHook" };
+    if (!state.promptContext || !state.postType) {
+      return { error: "missing context for chooseHook" };
   }
 
   try {
@@ -17,7 +17,7 @@ export async function chooseHookNode(
       conversationId: state.conversationId,
       tenantId: state.tenantId,
       userId: state.userId,
-      context: state.workflowContext,
+      context: state.promptContext,
       postType: state.postType
     });
 

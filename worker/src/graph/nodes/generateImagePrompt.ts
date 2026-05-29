@@ -8,7 +8,7 @@ export async function generateImagePromptNode(
   ctx: Container
 ): Promise<Partial<GraphState>> {
   if (state.error) return {};
-  if (!state.workflowContext || !state.postType || !state.draftText) {
+  if (!state.promptContext || !state.postType || !state.draftText) {
     return { error: "missing context for generateImagePrompt" };
   }
 
@@ -17,7 +17,7 @@ export async function generateImagePromptNode(
       conversationId: state.conversationId,
       tenantId: state.tenantId,
       userId: state.userId,
-      context: state.workflowContext,
+      context: state.promptContext,
       postType: state.postType,
       draft: state.draftText
     });

@@ -2,9 +2,11 @@ import {
   ClockStub,
   ConfigSourceStub,
   DraftStoreStub,
+  HttpDraftStoreAdapter,
   HttpConfigSourceAdapter,
   ImageStub,
   LlmStub,
+  GroqLlmAdapter,
   SlackStub,
   StorageStub,
   type Clock,
@@ -40,15 +42,30 @@ function createConfigSource(
   return new ConfigSourceStub();
 }
 
+function createDraftStore(
+  overrides: Partial<Container>
+): DraftStoreAdapter {
+  if (overrides.draftStore) {
+    return overrides.draftStore;
+  }
+
+  const apiUrl = process.env.API_URL?.trim();
+  if (apiUrl) {
+    return new HttpDraftStoreAdapter(apiUrl);
+  }
+
+  return new DraftStoreStub();
+}
+
 export function createContainer(overrides: Partial<Container> = {}): Container {
   return {
-    llm: overrides.llm ?? new LlmStub(),
+    llm: overrides.llm ?? new GroqLlmAdapter(),
     slack: overrides.slack ?? new SlackStub(),
     clock: overrides.clock ?? new ClockStub(),
     configSource: createConfigSource(overrides),
     image: overrides.image ?? new ImageStub(),
     storage: overrides.storage ?? new StorageStub(),
-    draftStore: overrides.draftStore ?? new DraftStoreStub(),
+    draftStore: createDraftStore(overrides),
     slackDraftChannel:
       overrides.slackDraftChannel ?? process.env.SLACK_DRAFT_CHANNEL ?? "post-drafts"
   };

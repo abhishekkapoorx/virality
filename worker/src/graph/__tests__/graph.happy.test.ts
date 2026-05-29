@@ -39,7 +39,7 @@ test("happy path: full n8n workflow through LangGraph", async () => {
   const finalState = (await graph.invoke(makeInitialState())) as GraphState;
 
   assert.equal(finalState.error, undefined);
-  assert.ok(finalState.workflowContext);
+  assert.ok(finalState.promptContext);
   assert.ok(finalState.postType?.type);
   assert.ok(finalState.hookChoice?.hook_type);
   assert.equal(typeof finalState.draftText, "string");

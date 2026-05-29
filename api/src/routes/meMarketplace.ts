@@ -44,9 +44,23 @@ const weekdaySelectionSchema = z
   })
   .strict();
 
+const timeSelectionSchema = z
+  .object({
+    monday: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional().default(null),
+    tuesday: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional().default(null),
+    wednesday: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional().default(null),
+    thursday: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional().default(null),
+    friday: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional().default(null),
+    saturday: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional().default(null),
+    sunday: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional().default(null)
+  })
+  .strict();
+
 const selectionSchema = z.object({
   selectedHookIds: z.array(z.string()),
-  selectedPostStyleIdsByDay: weekdaySelectionSchema
+  selectedPostStyleIdsByDay: weekdaySelectionSchema,
+  selectedPostStyleSendTimesByDay: timeSelectionSchema,
+  timezone: z.string().min(1).default("UTC")
 });
 
 export const meMarketplaceRouter = Router();
@@ -211,8 +225,16 @@ meMarketplaceRouter.put("/marketplace/selections", async (req, res) => {
 
   try {
     const userId = getAuth(req).internalUserId;
+    // Debug: log incoming timezone for troubleshooting
+    console.info(`PUT /me/marketplace/selections user=${userId} timezone=${parsed.data.timezone}`);
     return res.json(
-      await updateMarketplaceSelections(userId, parsed.data.selectedHookIds, parsed.data.selectedPostStyleIdsByDay)
+      await updateMarketplaceSelections(
+        userId,
+        parsed.data.selectedHookIds,
+        parsed.data.selectedPostStyleIdsByDay,
+        parsed.data.selectedPostStyleSendTimesByDay,
+        parsed.data.timezone
+      )
     );
   } catch (error) {
     console.error("PUT marketplace selections failed", error);

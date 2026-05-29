@@ -49,7 +49,5 @@ export async function ensureUserFromClerk(payload: ClerkUserPayload) {
 export async function deleteUserByClerkId(clerkUserId: string) {
   const user = await findUserByClerkId(clerkUserId);
   if (!user) return;
-
-  await prisma.userWorkflowContext.deleteMany({ where: { userId: user.id } });
   await prisma.user.delete({ where: { id: user.id } });
 }

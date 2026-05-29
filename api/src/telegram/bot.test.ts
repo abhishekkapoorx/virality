@@ -49,7 +49,16 @@ function createTestBot(): { bot: Bot; calls: RecordedCall[] } {
   }) as Parameters<typeof bot.api.config.use>[0]);
 
   bot.use(dedupeUpdatesMiddleware);
-  registerTelegramHandlers(bot);
+  registerTelegramHandlers(bot, {
+    enqueueDraftGeneration: async () => ({}) as Promise<unknown>,
+    getUserByTelegramUserId: async (telegramUserId) => {
+      if (telegramUserId === "12345") {
+        return { id: "user-1", tenantId: "tenant-1" };
+      }
+      return null;
+    },
+    redeemTelegramLinkToken: async () => ({ status: "invalid" })
+  });
 
   return { bot, calls };
 }
@@ -66,6 +75,7 @@ test("grammY bot acknowledges user text", async () => {
     message: {
       message_id: 10,
       date: 1,
+      from: { id: 12345, is_bot: false, first_name: "User" },
       chat: { id: 99, type: "private", first_name: "User" },
       text: "Ship notes on platform engineering"
     }
@@ -76,6 +86,46 @@ test("grammY bot acknowledges user text", async () => {
   assert.match(String((send!.payload as { text: string }).text), /Got your idea/);
 });
 
+test("grammY bot handles /generate with an idea", async () => {
+  const { bot, calls } = createTestBot();
+
+  await bot.handleUpdate({
+    update_id: 1,
+    message: {
+      message_id: 21,
+      date: 1,
+      from: { id: 12345, is_bot: false, first_name: "User" },
+      chat: { id: 99, type: "private", first_name: "User" },
+      text: "/generate Ship notes on platform engineering",
+      entities: [{ offset: 0, length: 9, type: "bot_command" }]
+    }
+  } as Parameters<Bot["handleUpdate"]>[0]);
+
+  const send = calls.find((c) => c.method === "sendMessage");
+  assert.ok(send);
+  assert.match(String((send!.payload as { text: string }).text), /Got your idea/);
+});
+
+test("grammY bot prompts for an idea when /generate is empty", async () => {
+  const { bot, calls } = createTestBot();
+
+  await bot.handleUpdate({
+    update_id: 5,
+    message: {
+      message_id: 22,
+      date: 1,
+      from: { id: 12345, is_bot: false, first_name: "User" },
+      chat: { id: 99, type: "private", first_name: "User" },
+      text: "/generate",
+      entities: [{ offset: 0, length: 9, type: "bot_command" }]
+    }
+  } as Parameters<Bot["handleUpdate"]>[0]);
+
+  const send = calls.find((c) => c.method === "sendMessage");
+  assert.ok(send);
+  assert.match(String((send!.payload as { text: string }).text), /Use \/generate <idea>/);
+});
+
 test("grammY bot sends welcome on /start", async () => {
   const { bot, calls } = createTestBot();
 
@@ -84,6 +134,7 @@ test("grammY bot sends welcome on /start", async () => {
     message: {
       message_id: 11,
       date: 1,
+      from: { id: 12345, is_bot: false, first_name: "User" },
       chat: { id: 42, type: "private", first_name: "User" },
       text: "/start",
       entities: [{ offset: 0, length: 6, type: "bot_command" }]
@@ -101,6 +152,7 @@ test("grammY bot dedupes update_id", async () => {
     message: {
       message_id: 12,
       date: 1,
+      from: { id: 12345, is_bot: false, first_name: "User" },
       chat: { id: 1, type: "private", first_name: "User" },
       text: "hello"
     }

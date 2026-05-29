@@ -1,4 +1,6 @@
 import { prisma } from "../lib/prisma.js";
+import type { Visibility } from "../generated/prisma/enums.js";
+import { syncDraftScheduleForUser } from "./draftQueueService.js";
 
 function toTextSearchQuery(value?: string | null): string {
   return value?.trim().toLowerCase() ?? "";
@@ -11,30 +13,28 @@ function mapHook(row: {
   title: string;
   description: string | null;
   tags: string[];
-  definition: unknown;
+  defShortDescription: string;
+  defLongDescription: string | null;
+  defIcon: string | null;
+  defExamples: string[];
+  defWhenToUse: string | null;
+  defPsychologicalEffect: string | null;
   createdAt: Date;
   updatedAt: Date;
 }, currentUserId?: string) {
-  const definition = (typeof row.definition === "object" && row.definition !== null ? row.definition : {}) as Record<
-    string,
-    unknown
-  >;
-
   return {
     id: row.id,
     title: row.title,
     author: row.ownerUserId === currentUserId ? "You" : row.ownerUserId ? "Community" : "LinkedIn Agent",
     isMine: row.ownerUserId === currentUserId,
-    shortDescription: row.description ?? String(definition.shortDescription ?? ""),
-    longDescription: String(definition.longDescription ?? row.description ?? ""),
-    visibility: row.visibility,
-    icon: typeof definition.icon === "string" ? definition.icon : undefined,
+    shortDescription: row.description ?? String(row.defShortDescription ?? ""),
+    longDescription: String(row.defLongDescription ?? row.description ?? ""),
+    visibility: String(row.visibility).toLowerCase(),
+    icon: row.defIcon ?? undefined,
     tags: row.tags ?? [],
-    examples: Array.isArray(definition.examples)
-      ? definition.examples.filter((item): item is string => typeof item === "string")
-      : [],
-    whenToUse: String(definition.whenToUse ?? ""),
-    psychologicalEffect: String(definition.psychologicalEffect ?? ""),
+    examples: Array.isArray(row.defExamples) ? row.defExamples.filter((item): item is string => typeof item === "string") : [],
+    whenToUse: String(row.defWhenToUse ?? ""),
+    psychologicalEffect: String(row.defPsychologicalEffect ?? ""),
     ownerUserId: row.ownerUserId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
@@ -48,30 +48,28 @@ function mapPostStyle(row: {
   title: string;
   description: string | null;
   tags: string[];
-  template: unknown;
+  templateShortDescription: string;
+  templateLongDescription: string | null;
+  templateIcon: string | null;
+  templateStructure: string | null;
+  templateExpectedHooks: string[];
+  templateOutcome: string | null;
   createdAt: Date;
   updatedAt: Date;
 }, currentUserId?: string) {
-  const template = (typeof row.template === "object" && row.template !== null ? row.template : {}) as Record<
-    string,
-    unknown
-  >;
-
   return {
     id: row.id,
     title: row.title,
     author: row.ownerUserId === currentUserId ? "You" : row.ownerUserId ? "Community" : "LinkedIn Agent",
     isMine: row.ownerUserId === currentUserId,
-    shortDescription: row.description ?? String(template.shortDescription ?? ""),
-    longDescription: String(template.longDescription ?? row.description ?? ""),
-    visibility: row.visibility,
-    icon: typeof template.icon === "string" ? template.icon : undefined,
+    shortDescription: row.description ?? String(row.templateShortDescription ?? ""),
+    longDescription: String(row.templateLongDescription ?? row.description ?? ""),
+    visibility: String(row.visibility).toLowerCase(),
+    icon: row.templateIcon ?? undefined,
     tags: row.tags ?? [],
-    structure: String(template.structure ?? ""),
-    expectedHooks: Array.isArray(template.expectedHooks)
-      ? template.expectedHooks.filter((item): item is string => typeof item === "string")
-      : [],
-    outcome: String(template.outcome ?? ""),
+    structure: String(row.templateStructure ?? ""),
+    expectedHooks: Array.isArray(row.templateExpectedHooks) ? row.templateExpectedHooks.filter((item): item is string => typeof item === "string") : [],
+    outcome: String(row.templateOutcome ?? ""),
     ownerUserId: row.ownerUserId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
@@ -79,46 +77,69 @@ function mapPostStyle(row: {
 }
 
 function filterVisibleHook(row: { visibility: string; ownerUserId: string | null }, userId: string): boolean {
-  return row.visibility === "public" || row.ownerUserId === userId;
+  return String(row.visibility) === "PUBLIC" || row.ownerUserId === userId;
 }
 
 function filterVisiblePostStyle(row: { visibility: string; ownerUserId: string | null }, userId: string): boolean {
-  return row.visibility === "public" || row.ownerUserId === userId;
+  return String(row.visibility) === "PUBLIC" || row.ownerUserId === userId;
 }
 
-function normalizeDaySelections(value: unknown): Record<string, string | null> {
-  const result: Record<string, string | null> = {
-    monday: null,
-    tuesday: null,
-    wednesday: null,
-    thursday: null,
-    friday: null,
-    saturday: null,
-    sunday: null
-  };
+const dayOrder = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 
-  if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+async function replaceSelections(
+  userId: string,
+  selectedHookIds: string[],
+  selectedPostStyleIdsByDay: Record<string, string | null>,
+  selectedPostStyleSendTimesByDay: Record<string, string | null>,
+  timezone: string
+) {
+  function normalizeTimezone(tz: string | null | undefined): string {
+    if (!tz) return "UTC";
+    const trimmed = String(tz).trim();
+    if (!trimmed) return "UTC";
+    const upper = trimmed.toUpperCase();
+    const alias: Record<string, string> = {
+      IST: "Asia/Kolkata",
+      'ASIA/KOLKATA': "Asia/Kolkata",
+      GMT: "UTC",
+      UTC: "UTC",
+      PST: "America/Los_Angeles",
+      PDT: "America/Los_Angeles",
+      EST: "America/New_York",
+      EDT: "America/New_York",
+      CET: "Europe/Paris",
+      BST: "Europe/London"
+    };
 
-  for (const key of Object.keys(result)) {
-    const next = (value as Record<string, unknown>)[key];
-    result[key] = typeof next === "string" && next.length > 0 ? next : null;
+    if (alias[upper]) return alias[upper];
+
+    // If already IANA-like (contains a slash), return as-is
+    if (trimmed.includes("/")) return trimmed;
+
+    // Fallback to UTC
+    return "UTC";
   }
 
-  return result;
-}
+  const normalizedTimezone = normalizeTimezone(timezone);
 
-async function replaceSelections(userId: string, selectedHookIds: string[], selectedPostStyleIdsByDay: Record<string, string | null>) {
-  const dayOrder = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
   const selectedPostStyleEntries = dayOrder.flatMap((dayKey, ordering) => {
     const styleId = selectedPostStyleIdsByDay[dayKey];
     if (typeof styleId !== "string" || styleId.length === 0) return [];
 
-    return [{
-      userId,
-      styleId,
-      ordering
-    }];
+    return [
+      {
+        userId,
+        dayKey,
+        styleId,
+        sendTime: selectedPostStyleSendTimesByDay[dayKey] ?? null,
+        timezone: normalizedTimezone,
+        ordering
+      }
+    ];
   });
+
+  // Debug: log normalized timezone and entries
+  console.info(`replaceSelections: user=${userId} normalizedTimezone=${normalizedTimezone} entries=${JSON.stringify(selectedPostStyleEntries)}`);
 
   await prisma.$transaction(async (tx) => {
     await tx.userSelectedHook.deleteMany({ where: { userId } });
@@ -135,42 +156,27 @@ async function replaceSelections(userId: string, selectedHookIds: string[], sele
         data: selectedPostStyleEntries
       });
     }
-
-    const existingSchedule = await tx.weeklyPostSchedule.findFirst({ where: { userId } });
-    if (existingSchedule) {
-      await tx.weeklyPostSchedule.update({
-        where: { id: existingSchedule.id },
-        data: { schedule: { selectedPostStyleIdsByDay } }
-      });
-      return;
-    }
-
-    await tx.weeklyPostSchedule.create({
-      data: {
-        userId,
-        schedule: { selectedPostStyleIdsByDay },
-        cronExpr: null,
-        enabled: false
-      }
-    });
   });
 }
 
 export async function listHooksForUser(userId: string, query?: string | null) {
   const normalizedQuery = toTextSearchQuery(query);
   const queryTerms = normalizedQuery.length > 0 ? normalizedQuery.split(/\s+/).filter(Boolean) : [];
+  const accessWhere = { OR: [{ visibility: "PUBLIC" as const }, { ownerUserId: userId }] };
   const searchWhere = normalizedQuery
     ? {
         OR: [
-          { title: { contains: normalizedQuery, mode: "insensitive" } },
-          { description: { contains: normalizedQuery, mode: "insensitive" } },
+          { title: { contains: normalizedQuery, mode: "insensitive" as const } },
+          { description: { contains: normalizedQuery, mode: "insensitive" as const } },
           ...(queryTerms.length > 0 ? [{ tags: { hasSome: queryTerms } }] : [])
         ]
       }
     : null;
 
+  const where = searchWhere ? { AND: [accessWhere, searchWhere] } : accessWhere;
+
   const rows = await prisma.marketplaceHook.findMany({
-    where: searchWhere ? { AND: [{ OR: [{ visibility: "public" }, { ownerUserId: userId }] }, searchWhere] } : { OR: [{ visibility: "public" }, { ownerUserId: userId }] },
+    where,
     orderBy: [{ visibility: "desc" }, { createdAt: "desc" }]
   });
 
@@ -229,18 +235,16 @@ export async function createHookForUser(userId: string, payload: {
   const row = await prisma.marketplaceHook.create({
     data: {
       ownerUserId: userId,
-      visibility: payload.visibility,
+      visibility: payload.visibility.toUpperCase() as unknown as Visibility,
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
-      definition: {
-        shortDescription: payload.shortDescription,
-        longDescription: payload.longDescription,
-        icon: payload.icon ?? null,
-        examples: payload.examples ?? [],
-        whenToUse: payload.whenToUse ?? "",
-        psychologicalEffect: payload.psychologicalEffect ?? ""
-      }
+      defShortDescription: payload.shortDescription,
+      defLongDescription: payload.longDescription,
+      defIcon: payload.icon ?? null,
+      defExamples: payload.examples ?? [],
+      defWhenToUse: payload.whenToUse ?? "",
+      defPsychologicalEffect: payload.psychologicalEffect ?? ""
     }
   });
 
@@ -264,18 +268,16 @@ export async function updateHookForUser(userId: string, hookId: string, payload:
   const row = await prisma.marketplaceHook.update({
     where: { id: hookId },
     data: {
-      visibility: payload.visibility,
+      visibility: payload.visibility.toUpperCase() as unknown as Visibility,
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
-      definition: {
-        shortDescription: payload.shortDescription,
-        longDescription: payload.longDescription,
-        icon: payload.icon ?? null,
-        examples: payload.examples ?? [],
-        whenToUse: payload.whenToUse ?? "",
-        psychologicalEffect: payload.psychologicalEffect ?? ""
-      }
+      defShortDescription: payload.shortDescription,
+      defLongDescription: payload.longDescription,
+      defIcon: payload.icon ?? null,
+      defExamples: payload.examples ?? [],
+      defWhenToUse: payload.whenToUse ?? "",
+      defPsychologicalEffect: payload.psychologicalEffect ?? ""
     }
   });
 
@@ -308,18 +310,16 @@ export async function createPostStyleForUser(userId: string, payload: {
   const row = await prisma.marketplacePostStyle.create({
     data: {
       ownerUserId: userId,
-      visibility: payload.visibility,
+      visibility: payload.visibility.toUpperCase() as unknown as Visibility,
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
-      template: {
-        shortDescription: payload.shortDescription,
-        longDescription: payload.longDescription,
-        icon: payload.icon ?? null,
-        structure: payload.structure ?? "",
-        expectedHooks: payload.expectedHooks ?? [],
-        outcome: payload.outcome ?? ""
-      }
+      templateShortDescription: payload.shortDescription,
+      templateLongDescription: payload.longDescription,
+      templateIcon: payload.icon ?? null,
+      templateStructure: payload.structure ?? "",
+      templateExpectedHooks: payload.expectedHooks ?? [],
+      templateOutcome: payload.outcome ?? ""
     }
   });
 
@@ -343,18 +343,16 @@ export async function updatePostStyleForUser(userId: string, postStyleId: string
   const row = await prisma.marketplacePostStyle.update({
     where: { id: postStyleId },
     data: {
-      visibility: payload.visibility,
+      visibility: payload.visibility.toUpperCase() as unknown as Visibility,
       title: payload.title,
       description: payload.shortDescription,
       tags: payload.tags ?? [],
-      template: {
-        shortDescription: payload.shortDescription,
-        longDescription: payload.longDescription,
-        icon: payload.icon ?? null,
-        structure: payload.structure ?? "",
-        expectedHooks: payload.expectedHooks ?? [],
-        outcome: payload.outcome ?? ""
-      }
+      templateShortDescription: payload.shortDescription,
+      templateLongDescription: payload.longDescription,
+      templateIcon: payload.icon ?? null,
+      templateStructure: payload.structure ?? "",
+      templateExpectedHooks: payload.expectedHooks ?? [],
+      templateOutcome: payload.outcome ?? ""
     }
   });
 
@@ -379,27 +377,44 @@ export async function getMarketplaceSelections(userId: string) {
     orderBy: { ordering: "asc" }
   });
 
-  const schedule = await prisma.weeklyPostSchedule.findFirst({ where: { userId } });
-  const scheduleSelections = normalizeDaySelections(
-    schedule?.schedule && typeof schedule.schedule === "object" ? (schedule.schedule as Record<string, unknown>).selectedPostStyleIdsByDay : null
+  const selectedPostStyles = await prisma.userSelectedPostStyle.findMany({
+    where: { userId },
+    orderBy: { ordering: "asc" }
+  });
+
+  const selectedPostStyleIdsByDay = Object.fromEntries(
+    dayOrder.map((dayKey) => [
+      dayKey,
+      selectedPostStyles.find((entry) => entry.dayKey === dayKey)?.styleId ?? null
+    ])
+  );
+  const selectedPostStyleSendTimesByDay = Object.fromEntries(
+    dayOrder.map((dayKey) => [
+      dayKey,
+      selectedPostStyles.find((entry) => entry.dayKey === dayKey)?.sendTime ?? null
+    ])
   );
 
   return {
     selectedHookIds: selectedHooks.map((entry) => entry.hookId),
-    selectedPostStyleIdsByDay: scheduleSelections
+    selectedPostStyleIdsByDay,
+    selectedPostStyleSendTimesByDay,
+    timezone: selectedPostStyles[0]?.timezone ?? "UTC"
   };
 }
 
 export async function updateMarketplaceSelections(
   userId: string,
   selectedHookIds: string[],
-  selectedPostStyleIdsByDay: Record<string, string | null>
+  selectedPostStyleIdsByDay: Record<string, string | null>,
+  selectedPostStyleSendTimesByDay: Record<string, string | null>,
+  timezone: string
 ) {
-  const accessibleHooks = await prisma.marketplaceHook.findMany({ where: { OR: [{ visibility: "public" }, { ownerUserId: userId }] } });
+  const accessibleHooks = await prisma.marketplaceHook.findMany({ where: { OR: [{ visibility: "PUBLIC" }, { ownerUserId: userId }] } });
   const accessibleHookIds = new Set(accessibleHooks.map((entry) => entry.id));
   const filteredHookIds = selectedHookIds.filter((hookId) => accessibleHookIds.has(hookId));
 
-  const accessibleStyles = await prisma.marketplacePostStyle.findMany({ where: { OR: [{ visibility: "public" }, { ownerUserId: userId }] } });
+  const accessibleStyles = await prisma.marketplacePostStyle.findMany({ where: { OR: [{ visibility: "PUBLIC" }, { ownerUserId: userId }] } });
   const accessibleStyleIds = new Set(accessibleStyles.map((entry) => entry.id));
   const filteredPostStyleIdsByDay = Object.fromEntries(
     Object.entries(selectedPostStyleIdsByDay).map(([dayKey, styleId]) => [
@@ -407,8 +422,15 @@ export async function updateMarketplaceSelections(
       styleId && accessibleStyleIds.has(styleId) ? styleId : null
     ])
   );
+  const filteredPostStyleSendTimesByDay = Object.fromEntries(
+    Object.entries(selectedPostStyleSendTimesByDay).map(([dayKey, sendTime]) => [
+      dayKey,
+      filteredPostStyleIdsByDay[dayKey] ? sendTime ?? null : null
+    ])
+  );
 
-  await replaceSelections(userId, filteredHookIds, filteredPostStyleIdsByDay);
+  await replaceSelections(userId, filteredHookIds, filteredPostStyleIdsByDay, filteredPostStyleSendTimesByDay, timezone || "UTC");
+  await syncDraftScheduleForUser(userId);
   return getMarketplaceSelections(userId);
 }
 

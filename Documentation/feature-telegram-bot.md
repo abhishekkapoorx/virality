@@ -13,7 +13,7 @@ Cross-links: [decisions/0004-telegram-over-slack-mvp-channel.md](./decisions/000
 |------|--------|
 | **SDK** | [grammY](https://grammy.dev) (`grammy` in `api`) — `webhookCallback`, `bot.api.setWebhook`, handlers, `InlineKeyboard` |
 | **Webhook** | `POST /v1/integrations/telegram/webhook` — grammY `webhookCallback` with optional `secretToken` |
-| **Handlers** | `api/src/telegram/handlers.ts` — `/start`, `/help`, text intake ack, inline keyboard stubs |
+| **Handlers** | `api/src/telegram/handlers.ts` — `/start`, `/help`, `/generate`, text intake ack |
 | **Idempotency** | grammY middleware `dedupeUpdatesMiddleware` (in-process `update_id`; Redis not wired yet) |
 | **Config** | `TELEGRAM_BOT_TOKEN`, optional `TELEGRAM_WEBHOOK_SECRET` in `api/.env` |
 | **Ops script** | `pnpm --filter @linkedin-agent/api telegram:set-webhook` (uses `bot.api.setWebhook`) |
@@ -21,10 +21,11 @@ Cross-links: [decisions/0004-telegram-over-slack-mvp-channel.md](./decisions/000
 ### User-visible bot behavior (current)
 
 - **`/start`** — welcome copy
+- **`/generate <idea>`** — queue a draft explicitly from Telegram text
 - **`/start link_<token>`** — placeholder reply (binding to Clerk user **not** implemented)
 - **`/help`** — short usage text
-- **Plain text** — “intake received” reply + Approve / Refine / Reject inline buttons (callbacks acknowledged; **no** LangGraph / DB conversation yet)
-- **Callback queries** — `answerCallbackQuery` + short confirmation message
+- **Plain text** — queues a draft generation job and acknowledges immediately
+- **Callback queries** — generic acknowledgment for legacy button presses
 
 ### Code map
 
@@ -46,7 +47,6 @@ Tests: `api/src/telegram/bot.test.ts` (mocked `bot.api` via grammY config).
 - `POST /v1/me/integrations/telegram/link-token` and DB `connectors` row for `telegram_user_id`
 - `/settings/telegram` web page
 - Map Telegram chat → internal user / `conversation_id`
-- Trigger worker LangGraph pipeline from inbound text
 - Redis idempotency for `update_id`
 - Replace worker `notifySlack` with Telegram delivery
 

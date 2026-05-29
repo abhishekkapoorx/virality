@@ -2,10 +2,6 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
-import {
-  DELIVERY_CHANNELS,
-  type GenerateDraftResponse
-} from "@linkedin-agent/shared";
 
 import { clerkAuthMiddleware } from "./middleware/clerkAuth.js";
 import { clerkWebhookRouter } from "./routes/clerkWebhook.js";
@@ -13,13 +9,15 @@ import { meTelegramRouter } from "./routes/meTelegram.js";
 import { meSetupRouter } from "./routes/meSetup.js";
 import { meMarketplaceRouter } from "./routes/meMarketplace.js";
 import { telegramWebhookRouter } from "./routes/telegramWebhook.js";
-import { internalWorkflowContextRouter } from "./routes/internalWorkflowContext.js";
-import { meWorkflowContextRouter } from "./routes/meWorkflowContext.js";
+import { internalGeneratedPostsRouter } from "./routes/internalGeneratedPosts.js";
+import { internalPromptContextRouter } from "./routes/internalPromptContext.js";
 import { resolveUserId } from "./lib/resolveUserId.js";
 import {
-  getOrCreateWorkflowContext,
-  upsertWorkflowContext
-} from "./services/workflowContextService.js";
+  enqueueDraftGeneration,
+  enqueueDraftGenerationAndWait,
+  resolveDraftDeliveryTargetForUser
+} from "./services/draftQueueService.js";
+// workflow-context service and routes removed — using new prompt-context endpoint instead
 import { getAuth } from "./types/auth.js";
 
 const app = express();
@@ -71,12 +69,12 @@ app.get("/health/ready", async (_req, res) => {
   });
 });
 
-app.use("/internal/v1", internalWorkflowContextRouter);
+app.use("/internal/v1", internalPromptContextRouter);
+app.use("/internal/v1", internalGeneratedPostsRouter);
 app.use("/v1/integrations/telegram", telegramWebhookRouter);
 
 const meRouter = express.Router();
 meRouter.use(clerkAuthMiddleware);
-meRouter.use(meWorkflowContextRouter);
 meRouter.use(meTelegramRouter);
 meRouter.use(meMarketplaceRouter);
 meRouter.use(meSetupRouter);
@@ -98,31 +96,6 @@ const inboundSchema = z.object({
   text: z.string().min(1)
 });
 
-async function buildDraftResponse(
-  userId: string,
-  updateRequest?: string
-): Promise<GenerateDraftResponse> {
-  const record = await getOrCreateWorkflowContext(userId);
-  const usedUpdateRequest = updateRequest?.trim() || null;
-  const updateLine = usedUpdateRequest
-    ? `Requested update: ${usedUpdateRequest}.`
-    : "Requested update: none.";
-
-  return {
-    userId,
-    post: [
-      `Config: ${record.configText.slice(0, 120)}…`,
-      `Style: ${record.styleText.slice(0, 120)}…`,
-      `Schedule: ${record.scheduleText.slice(0, 120)}…`,
-      updateLine,
-      "Draft: This week I focused on shipping repeatable content operations that keep quality high while reducing turnaround time."
-    ].join(" "),
-    carouselArtifactUrl: `https://assets.example.local/carousels/${userId}/latest.png`,
-    targets: DELIVERY_CHANNELS,
-    usedUpdateRequest
-  };
-}
-
 app.post("/v1/me/drafts/generate", clerkAuthMiddleware, async (req, res) => {
   const parsed = generateDraftSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -131,7 +104,20 @@ app.post("/v1/me/drafts/generate", clerkAuthMiddleware, async (req, res) => {
 
   const userId = getAuth(req).internalUserId;
   try {
-    return res.json(await buildDraftResponse(userId, parsed.data.updateRequest));
+    const target = await resolveDraftDeliveryTargetForUser(userId);
+    if (!target) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const response = await enqueueDraftGenerationAndWait({
+      tenantId: target.tenantId,
+      telegramUserId: target.telegramUserId,
+      userId,
+      updateRequest: parsed.data.updateRequest,
+      source: "manual"
+    });
+
+    return res.json(response);
   } catch (err) {
     console.error("draft generate failed", err);
     return res.status(500).json({ error: "Draft generation failed" });
@@ -145,8 +131,8 @@ app.post("/v1/integrations/slack/commands", async (req, res) => {
   }
 
   if (parsed.data.command !== "/set-repeat") {
-    return res.status(200).json({
-      message: `Command ${parsed.data.command} accepted as placeholder`,
+    return res.status(410).json({
+      error: "Slack commands are no longer supported",
       supportedCommand: "/set-repeat"
     });
   }
@@ -156,21 +142,9 @@ app.post("/v1/integrations/slack/commands", async (req, res) => {
     return res.status(400).json({ error: "Missing cron expression. Usage: /set-repeat <cron>" });
   }
 
-  try {
-    const current = await getOrCreateWorkflowContext(parsed.data.user_id);
-    const updated = await upsertWorkflowContext({
-      ...current,
-      cronExpression
-    });
-
-    return res.status(200).json({
-      message: "Repeat schedule updated",
-      userId: updated.userId,
-      cronExpression: updated.cronExpression
-    });
-  } catch (err) {
-    return res.status(500).json({ error: "Failed to update schedule" });
-  }
+  return res.status(410).json({
+    error: "Slack commands are no longer supported"
+  });
 });
 
 app.post("/internal/jobs/scheduled-draft-run", async (req, res) => {
@@ -183,11 +157,26 @@ app.post("/internal/jobs/scheduled-draft-run", async (req, res) => {
 
   const userId = parsed.data.userId ?? resolveUserId(req);
   try {
+    const target = await resolveDraftDeliveryTargetForUser(userId);
+    if (!target) {
+      return res.status(404).json({ error: "User tenant not found" });
+    }
+
+    const job = await enqueueDraftGeneration({
+      tenantId: target.tenantId,
+      telegramUserId: target.telegramUserId,
+      userId,
+      updateRequest: parsed.data.updateRequest,
+      source: "manual"
+    });
+
     return res.status(202).json({
       trigger: "scheduled",
-      ...(await buildDraftResponse(userId, parsed.data.updateRequest))
+      queued: true,
+      jobId: job.id ?? null,
+      userId
     });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Scheduled run failed" });
   }
 });
@@ -198,10 +187,22 @@ app.post("/v1/inbound", (req, res) => {
     return res.status(400).json({ error: "Invalid payload", issues: parsed.error.issues });
   }
 
-  return res.status(202).json({
-    message: "Inbound event accepted",
-    workflowState: "intake_received"
-  });
+  enqueueDraftGenerationAndWait({
+    tenantId: parsed.data.tenantId,
+    userId: parsed.data.userId,
+    updateRequest: parsed.data.text,
+    source: "manual"
+  })
+    .then((response) => {
+      return res.status(200).json({
+        workflowState: "draft_ready",
+        draft: response
+      });
+    })
+    .catch((error) => {
+      console.error("inbound event failed", error);
+      return res.status(500).json({ error: "Inbound event failed" });
+    });
 });
 
 const port = Number(process.env.PORT || 4000);

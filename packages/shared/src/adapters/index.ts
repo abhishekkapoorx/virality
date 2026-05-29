@@ -1,5 +1,6 @@
 export * from "./llm.js";
 export * from "./llm.stub.js";
+export * from "./llm.groq.js";
 export * from "./slack.js";
 export * from "./slack.stub.js";
 export * from "./telegram.js";
@@ -14,4 +15,5 @@ export * from "./image.stub.js";
 export * from "./storage.js";
 export * from "./storage.stub.js";
 export * from "./draftStore.js";
+export * from "./draftStore.http.js";
 export * from "./draftStore.stub.js";

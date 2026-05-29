@@ -2,70 +2,42 @@
 
 ## Task Summary
 
-Expand the `/setup` dashboard into a Prisma-backed marketplace experience for hooks and post types, with searchable selection, detailed views, custom item creation, public/private visibility, and weekday post-type assignment.
-
-Follow-up cleanup pass: remove the nested marketplace card button, push hook list filtering into Prisma, and simplify the selections response shape.
+Remove user-facing placeholder behavior and keep Telegram draft generation fully wired, including the `/generate <idea>` command, the internal inbound queue path, and reliable schedule persistence for weekday send times.
 
 ## Working Plan
 
-- Keep the existing onboarding flow intact.
-- Use Prisma-backed API routes for marketplace CRUD and selection persistence.
-- Keep public items separate from user-created items in the setup modal.
-- Preserve the setup summary cards while fixing the modal grid so the search row and create/edit section span the full width.
-- Run lint and typecheck for the touched packages, then document the final state.
-- Keep the marketplace list cards to a single interactive element.
-- Move hook visibility/search filtering into the database query.
-- Keep the selections response aligned with the dashboard's weekday-only schedule model.
+- Keep `/generate <idea>` on the same queue path as normal Telegram text intake.
+- Inject Telegram handler dependencies so the bot tests can stub Prisma-backed helpers.
+- Update the Telegram bot tests and user-facing copy for the new command.
+- Replace runtime placeholder responses with real queueing behavior where the code already has the necessary plumbing.
+- Make weekday send-time edits persist when a post type is already assigned so scheduler sync runs from the saved state.
+- Fix repeatable-job cleanup to match the actual BullMQ job id prefix.
+- Refresh the Telegram feature documentation and verify the API package with tests, lint, and typecheck.
 
 ## Completed Changes
 
-	- `api/src/routes/meMarketplace.ts` adds authenticated CRUD for hooks and post types, plus selection persistence.
-	- `api/src/services/marketplaceService.ts` reads and mutates only persisted marketplace rows; there is no hardcoded catalog bootstrap.
-	- `web/components/setup/SetupMarketplaceDashboard.live.tsx` now reads and writes live marketplace data instead of `localStorage` mocks.
-	- `web/components/setup/SetupMarketplaceDashboard.tsx` now re-exports the live Prisma-backed dashboard.
-	- Modal layout now uses a 12-column grid so the search row spans the full width and the create/edit section spans the full width.
-	- User selections persist through `/v1/me/marketplace/selections` and weekday assignments are saved in the weekly schedule row.
-	- `web/components/setup/SetupMarketplaceDashboard.live.tsx` now uses a single card-level interaction for marketplace list items; the plus affordance is decorative only.
-	- `api/src/services/marketplaceService.ts` now pushes hook visibility and search filtering into the Prisma `findMany` query.
-	- `api/src/services/marketplaceService.ts` now returns only `selectedHookIds` and `selectedPostStyleIdsByDay` from marketplace selections.
+- `api/src/telegram/handlers.ts` now registers `/generate`, reuses the existing draft queue path, and lazy-loads the Prisma-backed defaults so tests can inject stubs.
+- `api/src/telegram/bot.test.ts` now covers `/generate <idea>` and the empty `/generate` case with injected test deps.
+- `api/src/index.ts` now queues real draft work for `/v1/inbound` and returns a non-placeholder response for legacy Slack commands.
+- `api/src/services/draftQueueService.ts` now removes existing repeatable jobs using the real `schedule:${userId}:...` job id prefix.
+- `web/components/setup/SetupMarketplaceDashboard.live.tsx` now persists send-time edits when a day already has a selected post type.
+- `Documentation/feature-telegram-bot.md` now documents `/generate <idea>` as a user-facing bot command.
 
 ## Current Project Structure Relevant to the Task
 
-- `web/app/setup/page.tsx`: step-based onboarding UI + dashboard mode.
-- `web/components/setup/SetupMarketplaceDashboard.live.tsx`: live marketplace UI, Prisma-backed selection flow, and create/edit forms.
-- `web/components/setup/SetupMarketplaceDashboard.tsx`: thin re-export to the live dashboard implementation.
-- `web/lib/setupMarketplace.ts`: marketplace types, day labels, and description templates.
-- `api/src/routes/meSetup.ts`: setup load/save/generate/complete + enrich route.
-- `api/src/routes/meSetup.ts`: profile-summary update route for editable generated fields.
-- `api/src/routes/meMarketplace.ts`: authenticated marketplace CRUD, lookups, and selection persistence routes.
-- `api/src/services/marketplaceService.ts`: Prisma-backed marketplace query/mutation helpers.
-- `api/src/services/setupService.ts`: setup persistence/generation/enrichment logic.
-- `api/src/services/setupService.ts`: profile summary update helper.
-- `packages/shared/src/schemas/onboarding.ts`: strict + draft onboarding schemas.
-- `packages/shared/src/prompts/setupDetailedDocs.ts`: prompt builder for structured detailed docs generation.
-- Validation completed: `pnpm --filter @linkedin-agent/api lint` and `pnpm --filter @linkedin-agent/web lint`.
-- `Documentation/design-language.md`: visual direction used in setup refactor.
+- `api/src/telegram/handlers.ts`: command registration and draft-queue routing.
+- `api/src/telegram/bot.test.ts`: grammY bot behavior tests with injected service deps.
+- `api/src/services/draftQueueService.ts`: shared draft queue enqueue path.
+- `web/components/setup/SetupMarketplaceDashboard.live.tsx`: live marketplace dashboard and schedule persistence.
+- `api/src/services/telegramLinkService.ts`: Telegram account linking and lookup helpers.
 
 ## Current Status
 
-Setup is still wired for step-by-step draft saving and profile generation, and the completed dashboard now uses a live marketplace for hooks and post types.
-
-The marketplace modal now shows separate public and user-created lists, editable detail panes, and Prisma-backed create/update/delete flows for both item types.
-
-Hook selections and weekday post-type assignments now persist through Prisma instead of browser storage.
-
-The marketplace cleanup pass is complete: the list card no longer nests interactive buttons, hook listing now filters in Prisma, and selection reads now only expose the weekday schedule mapping the UI consumes.
-
-Root cause fixed for the selection-save error: the persistence layer was always issuing Prisma `createMany` calls even when a selection array was empty, which could fail during ordinary save flows. The service now skips empty inserts and only writes the rows that exist.
-
-The save path also now filters stale or inaccessible selection IDs instead of rejecting the request, so a deleted item cannot break an otherwise valid save.
-
-Validation completed successfully for both touched packages; only unrelated pre-existing lint warnings remain in `api/src/index.ts`, `api/src/routes/meWorkflowContext.ts`, and `web/app/workflow/page.tsx`.
+The Telegram `/generate` command is implemented, the internal inbound path now performs real work, repeatable schedule jobs exist in Redis, and API/web lint + typecheck all passed.
 
 ## Open Follow-ups or Risks
 
-- Enrichment now uses Groq via LangChain; verify `GROQ_API_KEY` and optional `GROQ_MODEL` are present in the API environment.
-- Final setup completion still depends on profile + schedule bundle semantics (`isComplete` is true when both exist).
-- If the public marketplace should be tenant-seeded differently in production, replace the inline seed arrays with a migration or admin-backed bootstrap path.
-- The marketplace now starts empty unless rows are created through the API or a migration.
-- If any environment skipped migrations earlier, rerun `prisma migrate deploy` to avoid `P2021` table-not-found errors on `/v1/me/setup*` routes.
+- The handler now lazy-loads production dependencies to keep tests isolated; if more Telegram commands are added, they should follow the same seam.
+- The command still requires a linked Telegram account before draft generation, which matches the current manual-text behavior.
+- The inline Telegram action buttons were removed rather than left as dead UI; if approve/refine/reject become real endpoints later, they should be reintroduced with backend support.
+- Existing repeatable jobs in Redis show the scheduler is registering entries; if a day still does not fire, check the worker logs and the selected send time timezone.

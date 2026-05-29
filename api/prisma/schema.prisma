@@ -7,6 +7,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Visibility {
+  PUBLIC
+  PRIVATE
+}
+
 model Tenant {
   id        String   @id @default(cuid())
   name      String
@@ -15,59 +20,50 @@ model Tenant {
 }
 
 model User {
-  id                String               @id @default(cuid())
-  clerkUserId       String?              @unique
-  email             String               @unique
-  tenantId          String
-  telegramUserId    String?              @unique
-  telegramLinkedAt  DateTime?
-  createdAt         DateTime             @default(now())
-  tenant            Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  telegramLinkTokens TelegramLinkToken[]
-  setupAnswers      UserSetupAnswer[]
-  setupProfile      UserSetupProfile?
-  weeklySchedules   WeeklyPostSchedule[]
-  selectedPostStyles UserSelectedPostStyle[]
-  selectedHooks     UserSelectedHook[]
-  setupAuditEvents  SetupAuditEvent[]
+  id                    String                  @id @default(cuid())
+  clerkUserId           String?                 @unique
+  email                 String                  @unique
+  tenantId              String
+  telegramUserId        String?                 @unique
+  telegramLinkedAt      DateTime?
+  createdAt             DateTime                @default(now())
+  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  telegramLinkTokens    TelegramLinkToken[]
+  setupAnswers          UserSetupAnswer[]
+  setupProfile          UserSetupProfile?
+  selectedPostStyles    UserSelectedPostStyle[]
+  selectedHooks         UserSelectedHook[]
+  generatedPosts        GeneratedPost[]
+  setupAuditEvents      SetupAuditEvent[]
+  marketplacePostStyles MarketplacePostStyle[]
+  marketplaceHooks      MarketplaceHook[]
 }
 
 /// Replaces n8n Google Docs (LinkedIn_Config, Style_Guide, Weekly_Post_Schedule, Content_Hook_System).
 /// One row per user; edited via web UI until Clerk supplies real user ids.
-model UserWorkflowContext {
-  userId                 String   @id
-  configText             String   @default("") @db.Text
-  styleText              String   @default("") @db.Text
-  scheduleText           String   @default("") @db.Text
-  hookSystemText         String   @default("") @db.Text
-  carouselDesignLanguage String   @default("")
-  cronExpression         String   @default("0 9 * * 1")
-  updatedAt              DateTime @updatedAt
-  createdAt              DateTime @default(now())
-}
 
 model TelegramLinkToken {
-  id         String   @id @default(cuid())
-  token      String   @unique
+  id         String    @id @default(cuid())
+  token      String    @unique
   userId     String
   expiresAt  DateTime
   consumedAt DateTime?
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 /// Onboarding answers submitted by the user (raw text per question)
 model UserSetupAnswer {
-  id         String   @id @default(cuid())
-  userId     String
-  answers    Json
-  state      String   @default("collecting")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  answers   Json
+  state     String   @default("collecting")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -77,67 +73,101 @@ model UserSetupProfile {
   id                   String   @id @default(cuid())
   userId               String   @unique
   industry             String?
-  icps                 Json     // array of strings, min 3 expected
+  icps                 String[] // array of strings, min 3 expected
   writingStyle         String?
   brandVoice           String?
   personalizationNotes String?  @db.Text
-  postConstraints      Json?    // optional structured constraints
-  exampleAngles        Json?    // array
-  detailedDocs         Json?    // enriched profile docs with 3 ICP cards
+  postConstraints      Json? // optional structured constraints
+  exampleAngles        Json? // array
+  detailedDocs         Json? // enriched profile docs with 3 ICP cards
   version              Int      @default(1)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
-model WeeklyPostSchedule {
-  id          String   @id @default(cuid())
-  userId      String
-  schedule    Json     // human-friendly grid + derived cron
-  cronExpr    String?
-  enabled     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  @@index([userId])
-}
 
 model MarketplacePostStyle {
-  id          String   @id @default(cuid())
-  ownerUserId String?
-  visibility  String   @default("public")
-  title       String
-  description String?
-  tags        String[]
-  template    Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                       String                  @id @default(cuid())
+  ownerUserId              String?
+  ownerUser                User?                   @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  visibility               Visibility              @default(PUBLIC)
+  title                    String
+  description              String?
+  tags                     String[]
+  templateShortDescription String
+  templateLongDescription  String?
+  templateIcon             String?
+  templateStructure        String?
+  templateExpectedHooks    String[]
+  templateOutcome          String?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  userSelectedPostStyles   UserSelectedPostStyle[]
+
+  @@index([ownerUserId])
 }
 
 model MarketplaceHook {
-  id          String   @id @default(cuid())
-  ownerUserId String?
-  visibility  String   @default("public")
-  title       String
-  description String?
-  tags        String[]
-  definition  Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                     String             @id @default(cuid())
+  ownerUserId            String?
+  ownerUser              User?              @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  visibility             Visibility         @default(PUBLIC)
+  title                  String
+  description            String?
+  tags                   String[]
+  defShortDescription    String
+  defLongDescription     String?
+  defIcon                String?
+  defExamples            String[]
+  defWhenToUse           String?
+  defPsychologicalEffect String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  userSelectedHooks      UserSelectedHook[]
+
+  @@index([ownerUserId])
 }
 
 model UserSelectedPostStyle {
   id        String   @id @default(cuid())
   userId    String
+  dayKey    String   @db.VarChar(16)
   styleId   String
+  sendTime  String?  @db.VarChar(5)
+  timezone  String   @default("UTC")
   ordering  Int      @default(0)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  style MarketplacePostStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  @@index([styleId])
+  @@index([dayKey])
+  @@unique([userId, dayKey])
+}
+
+model GeneratedPost {
+  id             String   @id @default(cuid())
+  userId         String
+  tenantId       String
+  conversationId String
+  type           String
+  hook           String
+  draft          String   @db.Text
+  imageUrl       String?
+  messageTs      String?
+  payload        Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([tenantId, createdAt])
 }
 
 model UserSelectedHook {
@@ -147,7 +177,10 @@ model UserSelectedHook {
   ordering  Int      @default(0)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hook MarketplaceHook @relation(fields: [hookId], references: [id], onDelete: Cascade)
+
+  @@index([hookId])
 }
 
 model SetupAuditEvent {
@@ -157,5 +190,5 @@ model SetupAuditEvent {
   payload   Json?
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

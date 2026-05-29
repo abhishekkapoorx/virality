@@ -9,8 +9,7 @@ const navLinks = [
   { href: "/setup", label: "Setup" },
   { href: "/workflow", label: "Workflow" },
   { href: "/settings/profile", label: "Profile" },
-  { href: "/settings/telegram", label: "Telegram" },
-  { href: "/settings/slack", label: "Slack" }
+  { href: "/settings/telegram", label: "Telegram" }
 ];
 
 export function SiteHeader() {

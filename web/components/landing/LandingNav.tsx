@@ -18,9 +18,6 @@ export function LandingNav() {
           <a href="/settings/profile" className="transition hover:text-stone-900">
             Settings
           </a>
-          <a href="/settings/slack" className="transition hover:text-stone-900">
-            Slack
-          </a>
           <a href="#features" className="transition hover:text-stone-900">
             Features
           </a>

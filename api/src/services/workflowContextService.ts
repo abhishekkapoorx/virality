@@ -1,103 +1,94 @@
-import {
-  DEMO_USER_ID,
-  type UserWorkflowContext,
-  type UserWorkflowContextUpsert,
-  type WorkflowContextBundle
-} from "@linkedin-agent/shared";
-
 import { prisma } from "../lib/prisma.js";
 
-function defaultRow(userId: string) {
-  return {
-    userId,
-    configText:
-      "LinkedIn config: brand voice, audience (founders + operators), default hashtags #BuildInPublic #Leadership",
-    styleText:
-      "Writing style: professional, direct, practical. Use BUT → THEREFORE loops. Vary sentence length (SMALL / MEDIUM / LARGE). End with a short punchline.",
-    scheduleText:
-      "Weekly schedule:\nMonday — Belief Reversal\nTuesday — Translation\nWednesday — Rejection Story\nThursday — 1-Minute Fix\nFriday — Storytelling",
-    hookSystemText:
-      "Hook system: Negative Warning, Lie Reveal, Curiosity Gap, Educational, Storytelling, Specific Audience Call-Out. Pick the hook that matches today's post type and goal.",
-    carouselDesignLanguage:
-      "Clean dark cards, neon blue accents, concise bullets, high contrast.",
-    cronExpression: "0 9 * * 1"
-  };
-}
-
-function toRecord(row: {
-  userId: string;
-  configText: string;
-  styleText: string;
-  scheduleText: string;
-  hookSystemText: string;
-  carouselDesignLanguage: string;
-  cronExpression: string;
-  updatedAt: Date;
-}): UserWorkflowContext {
-  return {
-    userId: row.userId,
-    configText: row.configText,
-    styleText: row.styleText,
-    scheduleText: row.scheduleText,
-    hookSystemText: row.hookSystemText,
-    carouselDesignLanguage: row.carouselDesignLanguage,
-    cronExpression: row.cronExpression,
-    updatedAt: row.updatedAt.toISOString()
-  };
-}
-
-export async function getOrCreateWorkflowContext(
-  userId: string = DEMO_USER_ID
-): Promise<UserWorkflowContext> {
-  const existing = await prisma.userWorkflowContext.findUnique({
-    where: { userId }
-  });
-  if (existing) {
-    return toRecord(existing);
-  }
-
-  const created = await prisma.userWorkflowContext.create({
-    data: defaultRow(userId)
-  });
-  return toRecord(created);
-}
-
-export async function upsertWorkflowContext(
-  input: UserWorkflowContextUpsert
-): Promise<UserWorkflowContext> {
-  const row = await prisma.userWorkflowContext.upsert({
-    where: { userId: input.userId },
-    create: {
-      ...defaultRow(input.userId),
-      ...input
-    },
-    update: {
-      configText: input.configText,
-      styleText: input.styleText,
-      scheduleText: input.scheduleText,
-      hookSystemText: input.hookSystemText,
-      carouselDesignLanguage: input.carouselDesignLanguage,
-      cronExpression: input.cronExpression
+/**
+ * Build a prompt bundle from the new day-row model and other available tables.
+ * Falls back to empty strings to preserve compatibility during migration.
+ */
+export async function getOrCreateWorkflowContext(userId: string) {
+  // Build a minimal record-like object from available tables
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      setupProfile: true,
+      selectedPostStyles: { include: { style: true } },
+      selectedHooks: { include: { hook: true } }
     }
   });
-  return toRecord(row);
-}
+  const profile = user?.setupProfile;
 
-/** Maps DB row → LangGraph `WorkflowContextBundle` (n8n Concated Context). */
-export function toWorkflowContextBundle(
-  record: UserWorkflowContext,
-  options: { userFeedback?: string; todayDay?: string } = {}
-): WorkflowContextBundle {
-  const todayDay =
-    options.todayDay ??
-    new Date().toLocaleString("en-US", { weekday: "long" });
+  // Build readable summaries from structured profile fields so the worker
+  // receives human-friendly context for post generation.
+  const industry = profile?.industry ?? "";
+  const icps = Array.isArray(profile?.icps) ? profile!.icps.join(", ") : "";
+  const writingStyle = profile?.writingStyle ?? "";
+  const brandVoice = profile?.brandVoice ?? "";
+  const personalizationNotes = profile?.personalizationNotes ?? "";
+  const exampleAngles = profile?.exampleAngles ? JSON.stringify(profile.exampleAngles) : "";
+  const postConstraints = profile?.postConstraints ? JSON.stringify(profile.postConstraints) : "";
+  const detailedDocs = profile?.detailedDocs ? JSON.stringify(profile.detailedDocs) : "";
+
+  const configText = [
+    industry && `Industry: ${industry}`,
+    icps && `ICP: ${icps}`,
+    personalizationNotes && `Personalization: ${personalizationNotes}`,
+    detailedDocs && `DetailedDocs: ${detailedDocs}`
+  ]
+    .filter(Boolean)
+    .join("\\n");
+
+  const styleText = [
+    writingStyle && `WritingStyle: ${writingStyle}`,
+    brandVoice && `BrandVoice: ${brandVoice}`,
+    exampleAngles && `ExampleAngles: ${exampleAngles}`,
+    postConstraints && `PostConstraints: ${postConstraints}`
+  ]
+    .filter(Boolean)
+    .join("\\n");
+
+  // Build schedule summary from selected post styles (day rows)
+  const selectedStyles = user?.selectedPostStyles ?? [];
+  const scheduleLines = selectedStyles.map((s) => {
+    const title = s.style?.title ?? s.styleId;
+    const when = s.sendTime ? `${s.sendTime} (${s.timezone ?? "UTC"})` : "unscheduled";
+    return `${s.dayKey}: ${title} at ${when}`;
+  });
+  const scheduleText = scheduleLines.join("\\n");
+
+  // Build hook system summary from selected hooks
+  const selectedHooks = user?.selectedHooks ?? [];
+  const hookLines = selectedHooks.map((h) => {
+    const title = h.hook?.title ?? h.hookId;
+    const desc = h.hook?.description ?? "";
+    return desc ? `${title}: ${desc}` : title;
+  });
+  const hookSystemText = hookLines.join("\\n");
 
   return {
-    configText: record.configText,
-    styleText: record.styleText,
-    scheduleText: record.scheduleText,
-    hookSystemText: record.hookSystemText,
-    todayDay,
-    userFeedback: options.userFeedback?.trim() ? options.userFeedback : "None"
+    userId,
+    configText,
+    styleText,
+    scheduleText,
+    hookSystemText,
+    updatedAt: new Date().toISOString()
   };
 }
+
+export async function upsertWorkflowContext(_data: any) {
+  // Migration: storing per-user prompt context is no longer supported.
+  throw new Error("upsertWorkflowContext is deprecated — use new setup APIs");
+}
+
+export function toWorkflowContextBundle(record: any, opts: { userFeedback?: string } = {}) {
+  const todayDay = new Date().toLocaleString("en-US", { weekday: "long" });
+  return {
+    configText: record?.configText ?? "",
+    styleText: record?.styleText ?? "",
+    scheduleText: record?.scheduleText ?? "",
+    hookSystemText: record?.hookSystemText ?? "",
+    todayDay,
+    userFeedback: opts.userFeedback ?? "",
+    updatedAt: record?.updatedAt ?? ""
+  };
+}
+
+export default {};

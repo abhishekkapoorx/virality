@@ -8,10 +8,10 @@ export async function generatePostNode(
   ctx: Container
 ): Promise<Partial<GraphState>> {
   if (state.error) return {};
-  if (!state.workflowContext || !state.postType || !state.hookChoice) {
-    return {
-      error: "workflowContext, postType, or hookChoice missing before generatePost"
-    };
+    if (!state.promptContext || !state.postType || !state.hookChoice) {
+      return {
+        error: "missing context for generatePost"
+      };
   }
 
   const entering = {
@@ -25,7 +25,7 @@ export async function generatePostNode(
       conversationId: state.conversationId,
       tenantId: state.tenantId,
       userId: state.userId,
-      context: state.workflowContext,
+        context: state.promptContext,
       postType: state.postType,
       hook: state.hookChoice
     });
