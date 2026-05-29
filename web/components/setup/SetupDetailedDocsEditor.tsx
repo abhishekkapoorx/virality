@@ -42,6 +42,7 @@ export function SetupDetailedDocsEditor({ docs, saving, onChange, onSave }: Setu
       <div className="mt-4 grid gap-4">
         <Input
           textarea
+          label="Industry narrative"
           value={docs.industryNarrative}
           onChange={(event) => updateField("industryNarrative", event.target.value)}
           placeholder="Industry narrative"
@@ -49,6 +50,7 @@ export function SetupDetailedDocsEditor({ docs, saving, onChange, onSave }: Setu
         />
 
         <Input
+          label="Topic lanes"
           value={docs.topicLanes.join(", ")}
           onChange={(event) => updateField("topicLanes", parseCommaList(event.target.value))}
           placeholder="Topic lanes (comma-separated)"
@@ -57,6 +59,7 @@ export function SetupDetailedDocsEditor({ docs, saving, onChange, onSave }: Setu
 
         <Input
           textarea
+          label="Writing style guide"
           value={docs.writingStyleGuide}
           onChange={(event) => updateField("writingStyleGuide", event.target.value)}
           placeholder="Writing style guide"
@@ -65,6 +68,7 @@ export function SetupDetailedDocsEditor({ docs, saving, onChange, onSave }: Setu
 
         <Input
           textarea
+          label="Brand voice guide"
           value={docs.brandVoiceGuide}
           onChange={(event) => updateField("brandVoiceGuide", event.target.value)}
           placeholder="Brand voice guide"
@@ -73,6 +77,7 @@ export function SetupDetailedDocsEditor({ docs, saving, onChange, onSave }: Setu
 
         <Input
           textarea
+          label="Personalization guide"
           value={docs.personalizationGuide}
           onChange={(event) => updateField("personalizationGuide", event.target.value)}
           placeholder="Personalization guide"
@@ -89,22 +94,26 @@ export function SetupDetailedDocsEditor({ docs, saving, onChange, onSave }: Setu
 
             <div className="mt-3 grid gap-3">
               <Input
+                label="Label"
                 value={card.label}
                 onChange={(event) => updateIcpCard(index, { ...card, label: event.target.value })}
                 placeholder="Label"
               />
               <Input
+                label="Role"
                 value={card.role}
                 onChange={(event) => updateIcpCard(index, { ...card, role: event.target.value })}
                 placeholder="Role"
               />
               <Input
+                label="Context"
                 value={card.context}
                 onChange={(event) => updateIcpCard(index, { ...card, context: event.target.value })}
                 placeholder="Context"
               />
               <Input
                 textarea
+                label="Pain points"
                 value={card.painPoints.join("\n")}
                 onChange={(event) =>
                   updateIcpCard(index, {
@@ -119,6 +128,7 @@ export function SetupDetailedDocsEditor({ docs, saving, onChange, onSave }: Setu
               />
               <Input
                 textarea
+                label="Message angles"
                 value={card.messageAngles.join("\n")}
                 onChange={(event) =>
                   updateIcpCard(index, {
@@ -132,6 +142,7 @@ export function SetupDetailedDocsEditor({ docs, saving, onChange, onSave }: Setu
                 placeholder="Message angles (one per line)"
               />
               <Input
+                label="Desired outcome"
                 value={card.desiredOutcome}
                 onChange={(event) =>
                   updateIcpCard(index, { ...card, desiredOutcome: event.target.value })
@@ -139,6 +150,7 @@ export function SetupDetailedDocsEditor({ docs, saving, onChange, onSave }: Setu
                 placeholder="Desired outcome"
               />
               <Input
+                label="CTA style"
                 value={card.ctaStyle}
                 onChange={(event) => updateIcpCard(index, { ...card, ctaStyle: event.target.value })}
                 placeholder="CTA style"

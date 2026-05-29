@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 
 const footerLinks = [
   { href: "/setup", label: "Setup" },
+  { href: "/post-disection", label: "Post dissection" },
   { href: "/workflow", label: "Workflow" },
   { href: "/settings/profile", label: "Profile" },
   { href: "/settings/telegram", label: "Telegram" }

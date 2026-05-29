@@ -529,6 +529,7 @@ export default function SetupPage() {
 
       <div className="grid gap-4">
         <Input
+          label="Industry"
           value={editableProfileSummary.industry}
           onChange={(event) =>
             setProfileSummaryDraft((current) =>
@@ -540,6 +541,7 @@ export default function SetupPage() {
         />
         <Input
           textarea
+          label="ICPs"
           value={editableProfileSummary.icpsText}
           onChange={(event) =>
             setProfileSummaryDraft((current) =>
@@ -551,6 +553,7 @@ export default function SetupPage() {
         />
         <Input
           textarea
+          label="Writing style"
           value={editableProfileSummary.writingStyle}
           onChange={(event) =>
             setProfileSummaryDraft((current) =>
@@ -562,6 +565,7 @@ export default function SetupPage() {
         />
         <Input
           textarea
+          label="Brand voice"
           value={editableProfileSummary.brandVoice}
           onChange={(event) =>
             setProfileSummaryDraft((current) =>
@@ -573,6 +577,7 @@ export default function SetupPage() {
         />
         <Input
           textarea
+          label="Personalization notes"
           value={editableProfileSummary.personalizationNotes}
           onChange={(event) =>
             setProfileSummaryDraft((current) =>
@@ -802,6 +807,7 @@ export default function SetupPage() {
 
             <Input
               textarea={currentQuestion.multiline ?? false}
+              label="Your answer"
               placeholder={currentQuestion.placeholder}
               value={currentValue}
               className="border-stone-300 bg-[#fcfaf6] text-stone-900 placeholder:text-stone-500 focus:border-stone-700 focus:ring-stone-700/20"

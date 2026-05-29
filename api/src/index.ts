@@ -8,6 +8,7 @@ import { clerkWebhookRouter } from "./routes/clerkWebhook.js";
 import { meTelegramRouter } from "./routes/meTelegram.js";
 import { meSetupRouter } from "./routes/meSetup.js";
 import { meMarketplaceRouter } from "./routes/meMarketplace.js";
+import { mePostDissectionRouter } from "./routes/mePostDissection.js";
 import { telegramWebhookRouter } from "./routes/telegramWebhook.js";
 import { internalGeneratedPostsRouter } from "./routes/internalGeneratedPosts.js";
 import { internalPromptContextRouter } from "./routes/internalPromptContext.js";
@@ -77,6 +78,7 @@ const meRouter = express.Router();
 meRouter.use(clerkAuthMiddleware);
 meRouter.use(meTelegramRouter);
 meRouter.use(meMarketplaceRouter);
+meRouter.use(mePostDissectionRouter);
 meRouter.use(meSetupRouter);
 app.use("/v1/me", meRouter);
 
