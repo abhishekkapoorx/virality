@@ -118,7 +118,15 @@ async function onStart(ctx: Context, deps: TelegramHandlerDeps): Promise<void> {
 
 async function onTextMessage(ctx: Context, deps: TelegramHandlerDeps): Promise<void> {
   const text = ctx.message?.text?.trim();
-  if (!text || text.startsWith("/")) return;
+  if (!text) return;
+
+  // Allow explicit /post-disection or /post_disection command forms (hyphen or underscore).
+  if (text.match(/^\/post[_-]disection(?:@\S+)?/i)) {
+    return onPostDissection(ctx, deps);
+  }
+
+  // Ignore other slash commands; normal messages are treated as ideas.
+  if (text.startsWith("/")) return;
 
   await queueDraftFromIdea(ctx, text, deps);
 }
@@ -175,6 +183,67 @@ async function onGenerate(ctx: Context, deps: TelegramHandlerDeps): Promise<void
   await queueDraftFromIdea(ctx, trimmedIdea, deps);
 }
 
+async function onPostDissection(ctx: Context, deps: TelegramHandlerDeps): Promise<void> {
+  const raw = ctx.message?.text ?? "";
+
+  // Support both /post_disection and /post-disection syntaxes in chat
+  const args = raw.replace(/^\/post[_-]disection(?:@\S+)?\s*/i, "").trim();
+  let postText = args;
+
+  // If no inline text, try replied-to message
+  if (!postText && ctx.message && "reply_to_message" in ctx.message && ctx.message.reply_to_message?.text) {
+    postText = ctx.message.reply_to_message.text;
+  }
+
+  if (!postText) {
+    await ctx.reply("Use /post_disection <post text> or reply to a post and run /post_disection to analyze it.");
+    return;
+  }
+
+  await ctx.reply("Analyzing post — this may take a few seconds...");
+
+  try {
+    const { analyzePostDissection } = await import("../services/postDissectionService.js");
+    const result = await analyzePostDissection(postText);
+
+    const message = [
+      `<b>Thesis</b>:\n${escapeHtml(result.thesis)}`,
+      `\n<b>Audience</b>:\n${escapeHtml(result.audience)}`,
+      `\n<b>CTA</b>:\n${escapeHtml(result.cta)}`,
+      `\n<b>Emotional trigger</b>:\n${escapeHtml(result.emotionalTrigger)}`,
+      `\n<b>Proof type</b>:\n${escapeHtml(result.proofType)}`,
+      `\n<b>Alternate hooks</b>:\n${escapeHtml(result.alternateHooks.join("\n"))}`,
+      `\n<b>—— Hook ———</b>`,
+      `<b>Title</b>: ${escapeHtml(result.hook.title)}`,
+      `<b>Short</b>: ${escapeHtml(result.hook.shortDescription)}`,
+      `<b>Long</b>: ${escapeHtml(result.hook.longDescription)}`,
+      `<b>Tags</b>: ${escapeHtml(result.hook.tags.join(", "))}`,
+      `<b>Examples</b>:\n${escapeHtml(result.hook.examples.join("\n"))}`,
+      `\n<b>—— Post style ———</b>`,
+      `<b>Title</b>: ${escapeHtml(result.postStyle.title)}`,
+      `<b>Short</b>: ${escapeHtml(result.postStyle.shortDescription)}`,
+      `<b>Long</b>: ${escapeHtml(result.postStyle.longDescription)}`,
+      `<b>Structure</b>:\n${escapeHtml(result.postStyle.structure)}`,
+      `<b>Expected hooks</b>:\n${escapeHtml(result.postStyle.expectedHooks.join("\n"))}`,
+      `<b>Outcome</b>: ${escapeHtml(result.postStyle.outcome)}`
+    ].join("\n\n");
+
+    await ctx.reply(message, { parse_mode: "HTML" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await ctx.reply(`Failed to analyze post: ${msg}`);
+  }
+}
+
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function onCallbackQuery(ctx: Context): Promise<void> {
   await ctx.answerCallbackQuery({
     text: "Use /generate <idea> to queue a new draft."
@@ -194,6 +263,7 @@ export function registerTelegramHandlers(bot: Bot, deps: Partial<TelegramHandler
 
   bot.command("start", (ctx) => onStart(ctx, resolvedDeps));
   bot.command("generate", (ctx) => onGenerate(ctx, resolvedDeps));
+  bot.command("post_disection", (ctx) => onPostDissection(ctx, resolvedDeps));
   bot.command("help", async (ctx) => {
     await ctx.reply(HELP_TEXT);
   });
