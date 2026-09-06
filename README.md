@@ -1,5 +1,7 @@
 # LinkedIn Agent (MVP Bootstrap)
 
+[![CI](https://github.com/abhishekkapoorx/virality/actions/workflows/ci.yml/badge.svg)](https://github.com/abhishekkapoorx/virality/actions/workflows/ci.yml)
+
 Monorepo initialized from architecture plan with:
 
 - `web`: Next.js + Tailwind
